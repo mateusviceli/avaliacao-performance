@@ -1,0 +1,1258 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Avaliação de Performance</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Sora:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* ── Tokens ─────────────────────────────────────────────────── */
+    :root {
+      --navy:       #1B3A6B;
+      --blue:       #2563EB;
+      --blue-light: #EFF6FF;
+      --green:      #059669;
+      --green-light:#D1FAE5;
+      --amber:      #D97706;
+      --amber-light:#FEF3C7;
+      --red:        #DC2626;
+      --red-light:  #FEE2E2;
+      --gray-50:    #F8FAFC;
+      --gray-100:   #F1F5F9;
+      --gray-200:   #E2E8F0;
+      --gray-400:   #94A3B8;
+      --gray-600:   #475569;
+      --gray-800:   #1E293B;
+      --white:      #FFFFFF;
+      --radius:     10px;
+      --shadow:     0 4px 24px rgba(0,0,0,0.08);
+      --shadow-sm:  0 1px 6px rgba(0,0,0,0.06);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--gray-50);
+      color: var(--gray-800);
+      min-height: 100vh;
+    }
+
+    /* ── Header ─────────────────────────────────────────────────── */
+    header {
+      background: var(--navy);
+      padding: 0 32px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+    }
+    .header-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .header-logo {
+      width: 36px;
+      height: 36px;
+      background: var(--blue);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+    .header-title {
+      font-family: 'Sora', sans-serif;
+      font-size: 16px;
+      font-weight: 600;
+      color: white;
+    }
+    .header-title span {
+      font-weight: 300;
+      opacity: 0.7;
+      font-size: 13px;
+      display: block;
+      margin-top: 1px;
+    }
+    .header-nav a {
+      color: rgba(255,255,255,0.7);
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 500;
+      margin-left: 24px;
+      transition: color 0.2s;
+    }
+    .header-nav a:hover { color: white; }
+    .header-nav a.active { color: white; }
+
+    /* ── Layout ─────────────────────────────────────────────────── */
+    .main {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 40px 24px 80px;
+    }
+
+    /* ── Progress bar ───────────────────────────────────────────── */
+    .progress-wrap {
+      margin-bottom: 32px;
+    }
+    .progress-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--gray-400);
+      margin-bottom: 8px;
+      font-weight: 500;
+    }
+    .progress-track {
+      height: 6px;
+      background: var(--gray-200);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--blue), var(--green));
+      border-radius: 99px;
+      transition: width 0.4s ease;
+      width: 0%;
+    }
+
+    /* ── Section card ───────────────────────────────────────────── */
+    .section {
+      background: var(--white);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-sm);
+      border: 1px solid var(--gray-200);
+      margin-bottom: 20px;
+      overflow: hidden;
+      transition: box-shadow 0.2s;
+    }
+    .section:focus-within {
+      box-shadow: 0 0 0 3px rgba(37,99,235,0.12), var(--shadow-sm);
+    }
+    .section-header {
+      padding: 18px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid var(--gray-100);
+    }
+    .section-icon {
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+    .section-icon.blue  { background: var(--blue-light); }
+    .section-icon.green { background: var(--green-light); }
+    .section-icon.amber { background: var(--amber-light); }
+    .section-title {
+      font-family: 'Sora', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--navy);
+    }
+    .section-subtitle {
+      font-size: 12px;
+      color: var(--gray-400);
+      margin-top: 2px;
+    }
+    .section-body { padding: 20px 24px; }
+
+    /* ── Form fields ────────────────────────────────────────────── */
+    .field-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    .field-row.col-3 {
+      grid-template-columns: 1fr 1fr 1fr;
+    }
+    .field-row.col-1 {
+      grid-template-columns: 1fr;
+    }
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .field label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--gray-600);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .field label .req { color: var(--red); margin-left: 2px; }
+    .field input,
+    .field select,
+    .field textarea {
+      border: 1.5px solid var(--gray-200);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      color: var(--gray-800);
+      background: var(--white);
+      transition: border-color 0.2s, box-shadow 0.2s;
+      outline: none;
+      width: 100%;
+    }
+    .field input:focus,
+    .field select:focus,
+    .field textarea:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(37,99,235,0.12);
+    }
+    .field textarea { resize: vertical; min-height: 88px; }
+    .field input.error,
+    .field select.error { border-color: var(--red); }
+
+    /* ── Critério de avaliação (radio visual) ───────────────────── */
+    .criterio-intro {
+      font-size: 12px;
+      color: var(--gray-400);
+      margin-bottom: 16px;
+      padding: 10px 14px;
+      background: var(--gray-50);
+      border-radius: 8px;
+      border: 1px solid var(--gray-200);
+    }
+
+    .criterio-table { width: 100%; border-collapse: collapse; }
+    .criterio-table thead tr {
+      background: var(--navy);
+    }
+    .criterio-table thead th {
+      padding: 10px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      color: white;
+      text-align: center;
+    }
+    .criterio-table thead th:first-child {
+      text-align: left;
+      width: 44%;
+      border-radius: 8px 0 0 0;
+    }
+    .criterio-table thead th:last-child { border-radius: 0 8px 0 0; }
+
+    .criterio-table tbody tr {
+      border-bottom: 1px solid var(--gray-100);
+      transition: background 0.15s;
+    }
+    .criterio-table tbody tr:last-child { border-bottom: none; }
+    .criterio-table tbody tr:hover { background: var(--blue-light); }
+
+    .criterio-table td {
+      padding: 12px;
+      font-size: 13px;
+      color: var(--gray-600);
+      vertical-align: middle;
+    }
+    .criterio-table td:not(:first-child) { text-align: center; }
+
+    /* Radio visual */
+    .radio-option {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .radio-option input[type="radio"] { display: none; }
+    .radio-option label {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 2px solid var(--gray-200);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.18s;
+      position: relative;
+      font-size: 0;
+    }
+    .radio-option label:hover {
+      border-color: var(--blue);
+      background: var(--blue-light);
+      transform: scale(1.12);
+    }
+    .radio-option input:checked + label {
+      border-color: transparent;
+      transform: scale(1.08);
+    }
+    /* Cores por coluna */
+    [data-col="0"] input:checked + label { background: #059669; box-shadow: 0 0 0 3px rgba(5,150,105,0.2); }
+    [data-col="1"] input:checked + label { background: #2563EB; box-shadow: 0 0 0 3px rgba(37,99,235,0.2); }
+    [data-col="2"] input:checked + label { background: #D97706; box-shadow: 0 0 0 3px rgba(217,119,6,0.2); }
+    [data-col="3"] input:checked + label { background: #DC2626; box-shadow: 0 0 0 3px rgba(220,38,38,0.2); }
+    .radio-option input:checked + label::after {
+      content: '';
+      width: 8px;
+      height: 8px;
+      background: white;
+      border-radius: 50%;
+    }
+
+    /* Média calculada */
+    .media-cell {
+      font-weight: 700;
+      font-size: 13px;
+      color: var(--navy);
+      min-width: 44px;
+    }
+
+    /* ── Legenda de cores ───────────────────────────────────────── */
+    .legenda {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+    .legenda-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--gray-600);
+      font-weight: 500;
+    }
+    .legenda-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+
+    /* ── Objetivos dinâmicos ────────────────────────────────────── */
+    .objetivo-item {
+      display: grid;
+      grid-template-columns: 28px 1fr auto;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .objetivo-num {
+      width: 28px;
+      height: 28px;
+      background: var(--navy);
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .btn-remove {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--gray-400);
+      font-size: 18px;
+      padding: 4px;
+      line-height: 1;
+      transition: color 0.2s;
+      border-radius: 4px;
+    }
+    .btn-remove:hover { color: var(--red); }
+    .btn-add {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: none;
+      border: 1.5px dashed var(--gray-200);
+      color: var(--blue);
+      padding: 10px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      width: 100%;
+      justify-content: center;
+      margin-top: 6px;
+      transition: all 0.2s;
+    }
+    .btn-add:hover {
+      border-color: var(--blue);
+      background: var(--blue-light);
+    }
+
+    /* ── Feedback section ───────────────────────────────────────── */
+    .feedback-options {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .feedback-option {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 14px 16px;
+      border: 1.5px solid var(--gray-200);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .feedback-option:hover { border-color: var(--blue); background: var(--blue-light); }
+    .feedback-option input { margin-top: 3px; accent-color: var(--blue); flex-shrink: 0; }
+    .feedback-option .fb-label { font-size: 13px; font-weight: 500; color: var(--gray-800); }
+    .feedback-option .fb-sub { font-size: 12px; color: var(--gray-400); margin-top: 2px; }
+
+    /* ── Submit / Buttons ───────────────────────────────────────── */
+    .form-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      margin-top: 32px;
+      padding-top: 24px;
+      border-top: 1px solid var(--gray-200);
+    }
+    .btn {
+      padding: 12px 28px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+      font-family: 'Inter', sans-serif;
+    }
+    .btn-secondary {
+      background: var(--gray-100);
+      color: var(--gray-600);
+      border: 1.5px solid var(--gray-200);
+    }
+    .btn-secondary:hover { background: var(--gray-200); }
+    .btn-primary {
+      background: var(--blue);
+      color: white;
+      box-shadow: 0 4px 12px rgba(37,99,235,0.3);
+    }
+    .btn-primary:hover {
+      background: #1d4ed8;
+      box-shadow: 0 6px 16px rgba(37,99,235,0.4);
+      transform: translateY(-1px);
+    }
+    .btn-primary:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* ── Toast ──────────────────────────────────────────────────── */
+    .toast {
+      position: fixed;
+      bottom: 32px;
+      right: 32px;
+      padding: 14px 20px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.14);
+      transform: translateY(80px);
+      opacity: 0;
+      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      z-index: 999;
+      max-width: 380px;
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+    .toast.success { background: var(--navy); color: white; }
+    .toast.error   { background: var(--red); color: white; }
+
+    /* ── Success screen ─────────────────────────────────────────── */
+    #success-screen {
+      display: none;
+      text-align: center;
+      padding: 80px 40px;
+    }
+    #success-screen .success-icon {
+      font-size: 64px;
+      margin-bottom: 24px;
+    }
+    #success-screen h2 {
+      font-family: 'Sora', sans-serif;
+      font-size: 28px;
+      color: var(--navy);
+      margin-bottom: 12px;
+    }
+    #success-screen p {
+      color: var(--gray-400);
+      font-size: 15px;
+      max-width: 420px;
+      margin: 0 auto 32px;
+    }
+
+    /* ── Treinamentos ───────────────────────────────────────────── */
+    .treinamento-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: start;
+      margin-bottom: 10px;
+    }
+    .toggle-group {
+      display: flex;
+      gap: 8px;
+      margin-top: 6px;
+    }
+    .toggle-btn {
+      flex: 1;
+      padding: 8px;
+      border: 1.5px solid var(--gray-200);
+      border-radius: 8px;
+      background: white;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--gray-600);
+      transition: all 0.2s;
+      font-family: 'Inter', sans-serif;
+    }
+    .toggle-btn.active-sim { border-color: var(--green); background: var(--green-light); color: var(--green); }
+    .toggle-btn.active-nao { border-color: var(--red); background: var(--red-light); color: var(--red); }
+
+    /* ── Colaborador section (readonly note) ─────────────────────── */
+    .colaborador-note {
+      background: var(--amber-light);
+      border: 1px solid #fcd34d;
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 12px;
+      color: var(--amber);
+      margin-bottom: 16px;
+      font-weight: 500;
+    }
+
+    @media (max-width: 640px) {
+      .field-row, .field-row.col-3 { grid-template-columns: 1fr; }
+      header { padding: 0 16px; }
+      .main { padding: 24px 16px 60px; }
+      .criterio-table thead th { font-size: 9px; padding: 8px 4px; }
+      .criterio-table td { padding: 10px 4px; font-size: 12px; }
+      .radio-option label { width: 24px; height: 24px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-brand">
+    <div class="header-logo">📋</div>
+    <div class="header-title">
+      Avaliação de Performance
+      <span id="header-ciclo">Carregando ciclo...</span>
+    </div>
+  </div>
+  <nav class="header-nav">
+    <a href="index.html" class="active">Formulário</a>
+    <a href="dashboard.html">Dashboard</a>
+    <a href="admin.html">⚙ Admin</a>
+  </nav>
+</header>
+
+<div class="main">
+
+  <!-- Progress -->
+  <div class="progress-wrap">
+    <div class="progress-label">
+      <span id="progress-text">Preenchimento em andamento</span>
+      <span id="progress-pct">0%</span>
+    </div>
+    <div class="progress-track">
+      <div class="progress-fill" id="progress-fill"></div>
+    </div>
+  </div>
+
+  <div id="form-screen">
+  <form id="avaliacao-form" novalidate>
+
+    <!-- ── 1. Dados da pesquisa ── -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-icon blue">📋</div>
+        <div>
+          <div class="section-title">Dados da Pesquisa</div>
+          <div class="section-subtitle">Informações gerais do ciclo de avaliação</div>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="field-row col-3">
+          <div class="field">
+            <label>Data <span class="req">*</span></label>
+            <input type="date" id="data" name="data" required />
+          </div>
+          <div class="field">
+            <label>Ciclo <span class="req">*</span></label>
+            <select id="ciclo" name="ciclo" required>
+              <option value="">Selecione...</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Time / BU <span class="req">*</span></label>
+            <select id="time" name="time" required>
+              <option value="">Selecione...</option>
+            </select>
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>Colaborador avaliado <span class="req">*</span></label>
+            <input type="text" id="colaborador" name="colaborador" placeholder="Nome completo" required />
+          </div>
+          <div class="field">
+            <label>Função / Cargo <span class="req">*</span></label>
+            <input type="text" id="funcao" name="funcao" placeholder="Ex: Analista de Supply" required />
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>Cliente / Projeto</label>
+            <input type="text" id="cliente" name="cliente" placeholder="Ex: CEVA, Bosch..." />
+          </div>
+          <div class="field">
+            <label>Avaliador (você) <span class="req">*</span></label>
+            <input type="text" id="avaliador" name="avaliador" placeholder="Nome completo" required />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── 2. Competências ── -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-icon blue">⭐</div>
+        <div>
+          <div class="section-title">Competências</div>
+          <div class="section-subtitle">Avalie cada competência do colaborador</div>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="criterio-intro">
+          Selecione uma opção para cada competência. A média é calculada automaticamente.
+        </div>
+        <div class="legenda">
+          <div class="legenda-item"><div class="legenda-dot" style="background:#059669"></div>Atende acima do esperado (4)</div>
+          <div class="legenda-item"><div class="legenda-dot" style="background:#2563EB"></div>Atende dentro do esperado (3)</div>
+          <div class="legenda-item"><div class="legenda-dot" style="background:#D97706"></div>Em desenvolvimento (2)</div>
+          <div class="legenda-item"><div class="legenda-dot" style="background:#DC2626"></div>Não atende (1)</div>
+        </div>
+        <table class="criterio-table" id="competencias-table">
+          <thead>
+            <tr>
+              <th>Competência</th>
+              <th>Acima do esperado</th>
+              <th>Dentro do esperado</th>
+              <th>Em desenvolvimento</th>
+              <th>Não atende</th>
+              <th>Média</th>
+            </tr>
+          </thead>
+          <tbody id="competencias-body">
+            <!-- preenchido via JS com base nos dados do ciclo -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── 3. Avaliação Geral ── -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-icon green">📊</div>
+        <div>
+          <div class="section-title">Avaliação Geral</div>
+          <div class="section-subtitle">Qualidade, prazo e nível de satisfação geral</div>
+        </div>
+      </div>
+      <div class="section-body">
+        <table class="criterio-table" id="geral-table">
+          <thead>
+            <tr>
+              <th>Critério</th>
+              <th>Acima do esperado</th>
+              <th>Dentro do esperado</th>
+              <th>Em desenvolvimento</th>
+              <th>Não atende</th>
+              <th>Média</th>
+            </tr>
+          </thead>
+          <tbody id="geral-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── 4. Pontos positivos / a desenvolver ── -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-icon amber">💬</div>
+        <div>
+          <div class="section-title">Feedback Qualitativo</div>
+          <div class="section-subtitle">Pontos positivos e áreas de desenvolvimento</div>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="field-row col-1">
+          <div class="field">
+            <label>Pontos positivos</label>
+            <textarea id="pontos_positivos" name="pontos_positivos" placeholder="Descreva os pontos fortes observados no período..."></textarea>
+          </div>
+        </div>
+        <div class="field-row col-1">
+          <div class="field">
+            <label>Pontos a desenvolver</label>
+            <textarea id="pontos_desenvolver" name="pontos_desenvolver" placeholder="Descreva as áreas de melhoria e desenvolvimento esperadas..."></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── 5. Objetivos ── -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-icon blue">🎯</div>
+        <div>
+          <div class="section-title">Objetivos para o período</div>
+          <div class="section-subtitle">Defina metas e objetivos para o próximo ciclo</div>
+        </div>
+      </div>
+      <div class="section-body">
+        <div id="objetivos-list"></div>
+        <button type="button" class="btn-add" id="add-objetivo">
+          + Adicionar objetivo
+        </button>
+      </div>
+    </div>
+
+    <!-- ── 6. Treinamentos ── -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-icon amber">🎓</div>
+        <div>
+          <div class="section-title">Treinamentos</div>
+          <div class="section-subtitle">Capacitações e formações do colaborador</div>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="field-row col-1" style="margin-bottom:16px">
+          <div class="field">
+            <label>O colaborador tem conhecimento para ministrar treinamentos?</label>
+            <div class="toggle-group" id="pode-treinar-group">
+              <button type="button" class="toggle-btn" data-val="sim" onclick="togglePodeTreinar(this)">✅ Sim</button>
+              <button type="button" class="toggle-btn" data-val="nao" onclick="togglePodeTreinar(this)">❌ Não</button>
+            </div>
+          </div>
+        </div>
+        <div class="field-row col-1" id="ferramentas-wrap" style="display:none">
+          <div class="field">
+            <label>Quais ferramentas pode ensinar?</label>
+            <input type="text" id="ferramentas_treino" name="ferramentas_treino" placeholder="Ex: Excel, SAP, Power BI..." />
+          </div>
+        </div>
+        <div class="field-row col-1">
+          <div class="field">
+            <label>Treinamentos recebidos no período (resposta RH)</label>
+            <textarea id="treinamentos_recebidos" name="treinamentos_recebidos" placeholder="Liste os treinamentos realizados no período..."></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── 7. Entrevista individual (feedback) ── -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-icon green">🤝</div>
+        <div>
+          <div class="section-title">Entrevista Individual — Feedback</div>
+          <div class="section-subtitle">Como o feedback será conduzido com o colaborador</div>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="feedback-options">
+          <label class="feedback-option">
+            <input type="radio" name="modo_feedback" value="simultaneo" />
+            <div>
+              <div class="fb-label">Realizar o feedback com o colaborador e o RH Segula simultaneamente</div>
+              <div class="fb-sub">Ambos participam da conversa ao mesmo tempo</div>
+            </div>
+          </label>
+          <label class="feedback-option">
+            <input type="radio" name="modo_feedback" value="apenas_rh" />
+            <div>
+              <div class="fb-label">Dar o feedback apenas para o RH, para que seja repassado ao colaborador</div>
+              <div class="fb-sub">O RH intermediará a comunicação com o colaborador</div>
+            </div>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── 8. Campo do colaborador ── -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-icon green">👤</div>
+        <div>
+          <div class="section-title">Avaliação do Colaborador — Equipe Segula</div>
+          <div class="section-subtitle">O colaborador avalia o atendimento da equipe Segula</div>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="colaborador-note">
+          ⚠ Esta seção é preenchida pelo próprio colaborador durante a entrevista de feedback.
+        </div>
+        <table class="criterio-table">
+          <thead>
+            <tr>
+              <th>Área avaliada</th>
+              <th>Acima do esperado</th>
+              <th>Dentro do esperado</th>
+              <th>Abaixo do esperado</th>
+              <th>Não atende</th>
+              <th>Média</th>
+            </tr>
+          </thead>
+          <tbody id="colaborador-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── 9. Campo do cliente ── -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-icon amber">🏢</div>
+        <div>
+          <div class="section-title">Avaliação do Cliente — Equipe Segula</div>
+          <div class="section-subtitle">O cliente avalia o atendimento da equipe Segula</div>
+        </div>
+      </div>
+      <div class="section-body">
+        <table class="criterio-table">
+          <thead>
+            <tr>
+              <th>Área avaliada</th>
+              <th>Acima do esperado</th>
+              <th>Dentro do esperado</th>
+              <th>Abaixo do esperado</th>
+              <th>Não atende</th>
+              <th>Média</th>
+            </tr>
+          </thead>
+          <tbody id="cliente-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── Comentários gerais ── -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-icon blue">📝</div>
+        <div>
+          <div class="section-title">Comentários gerais</div>
+          <div class="section-subtitle">Observações adicionais sobre a avaliação</div>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="field-row col-1">
+          <div class="field">
+            <label>Comentários</label>
+            <textarea id="comentarios" name="comentarios" placeholder="Adicione qualquer observação relevante sobre a avaliação..."></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="form-actions">
+      <button type="button" class="btn btn-secondary" onclick="limparForm()">Limpar formulário</button>
+      <button type="submit" class="btn btn-primary" id="btn-submit">
+        Enviar Avaliação →
+      </button>
+    </div>
+
+  </form>
+  </div><!-- /form-screen -->
+
+  <!-- Success screen -->
+  <div id="success-screen">
+    <div class="success-icon">✅</div>
+    <h2>Avaliação enviada com sucesso!</h2>
+    <p>Os dados foram registrados e estarão disponíveis no dashboard em instantes.</p>
+    <button class="btn btn-primary" onclick="novaAvaliacao()">Iniciar nova avaliação</button>
+  </div>
+
+</div><!-- /main -->
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// CONFIG — substitua com suas credenciais do Supabase
+// ═══════════════════════════════════════════════════════════════
+const SUPABASE_URL = 'https://zlvxyiwovzktivftzejq.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpsdnh5aXdvdnprdGl2ZnR6ZWpxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MjkwNDQsImV4cCI6MjA5ODQwNTA0NH0.5hahJXlsFvpLG3tU2WG2rcGhzeGbbEmeeuyaqCq3-RM';
+
+// ═══════════════════════════════════════════════════════════════
+// API helper
+// ═══════════════════════════════════════════════════════════════
+async function supabase(method, table, body = null, params = '') {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}${params}`, {
+    method,
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Content-Type': 'application/json',
+      'Prefer': method === 'POST' ? 'return=representation' : ''
+    },
+    body: body ? JSON.stringify(body) : null
+  });
+  if (!res.ok) throw new Error(await res.text());
+  if (method === 'POST' || method === 'GET') {
+    const text = await res.text();
+    return text ? JSON.parse(text) : null;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DADOS CONFIGURÁVEIS — editáveis pela equipe de admin
+// Em produção, viriam da tabela "configuracoes" do Supabase
+// ═══════════════════════════════════════════════════════════════
+const CONFIG = {
+  cicloAtual: '2025 — 1º Semestre',
+  ciclos: [
+    '2025 — 1º Semestre',
+    '2025 — 2º Semestre',
+    '2024 — 2º Semestre',
+  ],
+  times: [
+    'Supply BU PR',
+    'Supply BU SP',
+    'Logística',
+    'Compras',
+    'RH',
+    'Comercial',
+  ],
+  competencias: [
+    'Relacionamento interpessoal: Capacidade de se relacionar de forma construtiva com o time, demonstrando considerações e respeito pelos colegas.',
+    'Responsabilidade: Capacidade de disponibilizar todo o potencial em prol dos objetivos e metas da equipe.',
+    'Solução de Problemas: Toma providências rápidas diante de problemas, tomando decisões assertivas em busca de soluções eficazes.',
+    'Administração de conflitos: Analisar as causas e buscar soluções, tendo em vista o cumprimento das metas.',
+    'Iniciativa e empreendedorismo: Propõe inovações, busca informações e soluções.',
+  ],
+  criteriosGerais: [
+    'Qualidade — Avalie a qualidade geral na qual nosso prestador entrega as atividades solicitadas.',
+    'Prazo de entrega (Deadline) — Período de tempo necessário para executar uma atividade.',
+    'Nível de satisfação — Avaliação geral do nível do serviço prestado.',
+  ],
+  areasSegula: [
+    'Gestores (comerciais)',
+    'Desenvolvimento Humano',
+    'Segurança do trabalho',
+  ],
+};
+
+// Valores das opções
+const VALORES = [4, 3, 2, 1]; // acima, dentro, dev, não atende
+const LABELS  = ['acima', 'dentro', 'em_desenvolvimento', 'nao_atende'];
+
+// ═══════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  // Preenche selects
+  populateSelect('ciclo', CONFIG.ciclos, CONFIG.cicloAtual);
+  populateSelect('time', CONFIG.times);
+
+  // Atualiza header
+  document.getElementById('header-ciclo').textContent = CONFIG.cicloAtual;
+
+  // Data atual
+  document.getElementById('data').value = new Date().toISOString().split('T')[0];
+
+  // Tabelas de avaliação
+  buildCriterioTable('competencias-body', CONFIG.competencias, 'comp');
+  buildCriterioTable('geral-body', CONFIG.criteriosGerais, 'geral');
+  buildCriterioTable('colaborador-body', CONFIG.areasSegula, 'colab');
+  buildCriterioTable('cliente-body', CONFIG.areasSegula, 'cli');
+
+  // Objetivos: começa com 3
+  for (let i = 0; i < 3; i++) addObjetivo();
+
+  // Progress
+  document.getElementById('avaliacao-form').addEventListener('input', updateProgress);
+  document.getElementById('avaliacao-form').addEventListener('change', updateProgress);
+
+  // Submit
+  document.getElementById('avaliacao-form').addEventListener('submit', handleSubmit);
+});
+
+function populateSelect(id, options, selected = null) {
+  const el = document.getElementById(id);
+  options.forEach(opt => {
+    const o = document.createElement('option');
+    o.value = opt;
+    o.textContent = opt;
+    if (opt === selected) o.selected = true;
+    el.appendChild(o);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TABELAS DE CRITÉRIOS
+// ═══════════════════════════════════════════════════════════════
+function buildCriterioTable(tbodyId, items, prefix) {
+  const tbody = document.getElementById(tbodyId);
+  items.forEach((item, idx) => {
+    const tr = document.createElement('tr');
+    // Texto do critério
+    const tdLabel = document.createElement('td');
+    tdLabel.textContent = item;
+    tr.appendChild(tdLabel);
+
+    // 4 opções de radio
+    LABELS.forEach((lbl, col) => {
+      const td = document.createElement('td');
+      td.setAttribute('data-col', col);
+      const id = `${prefix}_${idx}_${lbl}`;
+      td.innerHTML = `
+        <div class="radio-option" data-col="${col}">
+          <input type="radio" name="${prefix}_${idx}" id="${id}" value="${VALORES[col]}" />
+          <label for="${id}" title="${['Acima do esperado','Dentro do esperado','Em desenvolvimento','Não atende'][col]}"></label>
+        </div>`;
+      td.addEventListener('change', () => updateMedia(prefix, idx, items.length));
+      tr.appendChild(td);
+    });
+
+    // Média
+    const tdMedia = document.createElement('td');
+    tdMedia.className = 'media-cell';
+    tdMedia.id = `media_${prefix}_${idx}`;
+    tdMedia.textContent = '—';
+    tr.appendChild(tdMedia);
+
+    tbody.appendChild(tr);
+  });
+}
+
+function updateMedia(prefix, idx, total) {
+  const selected = document.querySelector(`input[name="${prefix}_${idx}"]:checked`);
+  const mediaEl = document.getElementById(`media_${prefix}_${idx}`);
+  if (!selected) return;
+  const val = parseFloat(selected.value);
+  mediaEl.textContent = val.toFixed(1);
+  const colors = { 4: '#059669', 3: '#2563EB', 2: '#D97706', 1: '#DC2626' };
+  mediaEl.style.color = colors[val] || 'var(--navy)';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// OBJETIVOS DINÂMICOS
+// ═══════════════════════════════════════════════════════════════
+let objCount = 0;
+function addObjetivo() {
+  objCount++;
+  const list = document.getElementById('objetivos-list');
+  const div = document.createElement('div');
+  div.className = 'objetivo-item';
+  div.id = `obj-item-${objCount}`;
+  div.innerHTML = `
+    <div class="objetivo-num">${list.children.length + 1}</div>
+    <input type="text" name="objetivo_${objCount}" placeholder="Descreva o objetivo..." style="border:1.5px solid var(--gray-200);border-radius:8px;padding:10px 14px;font-family:Inter,sans-serif;font-size:14px;outline:none;transition:border-color 0.2s" onfocus="this.style.borderColor='var(--blue)'" onblur="this.style.borderColor='var(--gray-200)'" />
+    <button type="button" class="btn-remove" onclick="removeObjetivo('obj-item-${objCount}')" title="Remover">×</button>`;
+  list.appendChild(div);
+  renumberObjetivos();
+}
+
+function removeObjetivo(id) {
+  const list = document.getElementById('objetivos-list');
+  if (list.children.length <= 1) return;
+  document.getElementById(id)?.remove();
+  renumberObjetivos();
+}
+
+function renumberObjetivos() {
+  document.querySelectorAll('#objetivos-list .objetivo-num').forEach((el, i) => {
+    el.textContent = i + 1;
+  });
+}
+
+document.getElementById('add-objetivo')?.addEventListener('click', addObjetivo);
+
+// ═══════════════════════════════════════════════════════════════
+// TREINAMENTOS
+// ═══════════════════════════════════════════════════════════════
+let podeTreinarVal = null;
+function togglePodeTreinar(btn) {
+  document.querySelectorAll('#pode-treinar-group .toggle-btn').forEach(b => {
+    b.className = 'toggle-btn';
+  });
+  podeTreinarVal = btn.dataset.val;
+  btn.className = `toggle-btn active-${btn.dataset.val}`;
+  document.getElementById('ferramentas-wrap').style.display =
+    podeTreinarVal === 'sim' ? 'grid' : 'none';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PROGRESS
+// ═══════════════════════════════════════════════════════════════
+function updateProgress() {
+  const required = ['data', 'ciclo', 'time', 'colaborador', 'funcao', 'avaliador'];
+  let filled = 0;
+  required.forEach(id => {
+    if (document.getElementById(id)?.value?.trim()) filled++;
+  });
+
+  // Radio groups
+  const radioGroups = new Set();
+  document.querySelectorAll('.criterio-table input[type="radio"]').forEach(r => radioGroups.add(r.name));
+  let radioFilled = 0;
+  radioGroups.forEach(name => {
+    if (document.querySelector(`input[name="${name}"]:checked`)) radioFilled++;
+  });
+
+  const total = required.length + radioGroups.size;
+  const done  = filled + radioFilled;
+  const pct   = Math.round((done / total) * 100);
+
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('progress-pct').textContent  = pct + '%';
+  document.getElementById('progress-text').textContent =
+    pct === 100 ? 'Tudo preenchido! Pronto para enviar.' :
+    pct > 50    ? 'Quase lá...' : 'Preenchimento em andamento';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// COLETA DE DADOS
+// ═══════════════════════════════════════════════════════════════
+function coletarRadios(prefix, items) {
+  const result = {};
+  items.forEach((_, idx) => {
+    const sel = document.querySelector(`input[name="${prefix}_${idx}"]:checked`);
+    result[`${prefix}_${idx}`] = sel ? parseFloat(sel.value) : null;
+  });
+  return result;
+}
+
+function calcMediaGrupo(radios) {
+  const vals = Object.values(radios).filter(v => v !== null);
+  return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+}
+
+function coletarObjetivos() {
+  return Array.from(document.querySelectorAll('#objetivos-list input'))
+    .map(i => i.value.trim())
+    .filter(Boolean);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SUBMIT
+// ═══════════════════════════════════════════════════════════════
+async function handleSubmit(e) {
+  e.preventDefault();
+
+  // Validação básica
+  const required = ['data', 'ciclo', 'time', 'colaborador', 'funcao', 'avaliador'];
+  let valid = true;
+  required.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el.value.trim()) { el.classList.add('error'); valid = false; }
+    else el.classList.remove('error');
+  });
+  if (!valid) { showToast('Preencha os campos obrigatórios.', 'error'); return; }
+
+  const btn = document.getElementById('btn-submit');
+  btn.disabled = true;
+  btn.textContent = 'Enviando...';
+
+  // Coleta dados
+  const comp  = coletarRadios('comp',  CONFIG.competencias);
+  const geral = coletarRadios('geral', CONFIG.criteriosGerais);
+  const colab = coletarRadios('colab', CONFIG.areasSegula);
+  const cli   = coletarRadios('cli',   CONFIG.areasSegula);
+
+  const payload = {
+    data:                document.getElementById('data').value,
+    ciclo:               document.getElementById('ciclo').value,
+    time:                document.getElementById('time').value,
+    colaborador:         document.getElementById('colaborador').value.trim(),
+    funcao:              document.getElementById('funcao').value.trim(),
+    cliente:             document.getElementById('cliente').value.trim(),
+    avaliador:           document.getElementById('avaliador').value.trim(),
+    competencias:        comp,
+    media_competencias:  calcMediaGrupo(comp),
+    avaliacao_geral:     geral,
+    media_geral:         calcMediaGrupo(geral),
+    avaliacao_colaborador: colab,
+    media_colaborador:   calcMediaGrupo(colab),
+    avaliacao_cliente:   cli,
+    media_cliente:       calcMediaGrupo(cli),
+    media_total:         calcMediaGrupo({ ...comp, ...geral }),
+    pontos_positivos:    document.getElementById('pontos_positivos').value.trim(),
+    pontos_desenvolver:  document.getElementById('pontos_desenvolver').value.trim(),
+    objetivos:           coletarObjetivos(),
+    pode_treinar:        podeTreinarVal,
+    ferramentas_treino:  document.getElementById('ferramentas_treino').value.trim(),
+    treinamentos_recebidos: document.getElementById('treinamentos_recebidos').value.trim(),
+    modo_feedback:       document.querySelector('input[name="modo_feedback"]:checked')?.value,
+    comentarios:         document.getElementById('comentarios').value.trim(),
+    criado_em:           new Date().toISOString(),
+  };
+
+  try {
+    await supabase('POST', 'avaliacoes', payload);
+    document.getElementById('form-screen').style.display = 'none';
+    document.getElementById('success-screen').style.display = 'block';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } catch (err) {
+    console.error(err);
+    showToast('Erro ao salvar. Verifique a conexão e tente novamente.', 'error');
+    btn.disabled = false;
+    btn.textContent = 'Enviar Avaliação →';
+  }
+}
+
+function novaAvaliacao() {
+  document.getElementById('success-screen').style.display = 'none';
+  document.getElementById('form-screen').style.display = 'block';
+  document.getElementById('avaliacao-form').reset();
+  document.getElementById('objetivos-list').innerHTML = '';
+  objCount = 0;
+  for (let i = 0; i < 3; i++) addObjetivo();
+  podeTreinarVal = null;
+  document.querySelectorAll('.toggle-btn').forEach(b => b.className = 'toggle-btn');
+  document.getElementById('ferramentas-wrap').style.display = 'none';
+  // Reset médias
+  document.querySelectorAll('.media-cell').forEach(el => {
+    el.textContent = '—';
+    el.style.color = '';
+  });
+  updateProgress();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function limparForm() {
+  if (!confirm('Tem certeza que deseja limpar o formulário?')) return;
+  novaAvaliacao();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════════════════════════
+function showToast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.textContent = (type === 'success' ? '✅ ' : '❌ ') + msg;
+  t.className = `toast ${type} show`;
+  setTimeout(() => t.classList.remove('show'), 4000);
+}
+</script>
+</body>
+</html>
