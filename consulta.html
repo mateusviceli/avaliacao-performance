@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Consultar Avaliações</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Sora:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<style>
+.filtros{background:#fff;border:1px solid var(--g200);border-radius:var(--r);
+  padding:14px 18px;margin-bottom:20px;display:flex;gap:12px;align-items:flex-end;
+  flex-wrap:wrap;box-shadow:var(--sh)}
+.filtros .field{margin-bottom:0}
+.filtros .field select,.filtros .field input{min-width:150px}
+.btn-filtrar{padding:8px 18px;background:var(--blue);color:#fff;border:none;border-radius:8px;
+  font-size:13px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;align-self:flex-end}
+.btn-filtrar:hover{background:#1d4ed8}
+.table-wrap{overflow-x:auto}
+.table-hdr{padding:14px 18px;display:flex;justify-content:space-between;align-items:center;
+  border-bottom:1px solid var(--g100)}
+.table-hdr h3{font-family:'Sora',sans-serif;font-size:14px;font-weight:700;color:var(--navy)}
+.empty{text-align:center;padding:50px;color:var(--g400)}
+.empty .ei{font-size:40px;margin-bottom:12px}
+.kpi-mini{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
+.kpm{background:#fff;border:1px solid var(--g200);border-radius:var(--r);padding:14px 16px;box-shadow:var(--sh)}
+.kpm-lbl{font-size:10.5px;font-weight:700;color:var(--g400);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px}
+.kpm-val{font-family:'Sora',sans-serif;font-size:24px;font-weight:700;color:var(--navy)}
+</style>
+</head>
+<body>
+
+<header class="hdr bg-navy" id="hdr">
+  <div class="hdr-brand">
+    <div class="hdr-logo">📋</div>
+    <div>
+      <div class="hdr-title">Consulta de Avaliações</div>
+      <span class="hdr-sub" id="hdr-sub">Carregando...</span>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px">
+    <span id="hdr-grupo" style="color:rgba(255,255,255,.7);font-size:12px;align-self:center"></span>
+    <button class="hdr-pill" id="btn-admin" onclick="location.href='admin.html'" style="display:none">⚙ Admin</button>
+  </div>
+</header>
+
+<div class="wrap-wide" id="main">
+  <div style="text-align:center;padding:60px;color:var(--g400)">
+    <span style="font-size:32px">⏳</span><br><br>Carregando avaliações...
+  </div>
+</div>
+
+<div id="toast"></div>
+<script src="config.js"></script>
+<script>
+let PAPEL = null;  // 'gp' | 'gc'
+let GRUPO = null;  // código do grupo (para GC)
+let AVALIACOES = [];
+
+document.addEventListener('DOMContentLoaded', async () => {
+  const gpAuth = sessionStorage.getItem('gp_auth') === '1';
+  const grupoParam = urlParam('grupo');
+
+  if (gpAuth) {
+    // Gestor do Projeto — vê tudo
+    PAPEL = 'gp';
+    document.getElementById('hdr-sub').textContent = 'Visão completa — Gestor do Projeto';
+    document.getElementById('btn-admin').style.display = 'inline-block';
+    document.getElementById('hdr').className = 'hdr bg-navy';
+    await carregarGP();
+  } else if (grupoParam) {
+    // Gestor do Cliente — vê só o grupo
+    PAPEL = 'gc';
+    GRUPO = grupoParam;
+    document.getElementById('hdr-sub').textContent = 'Avaliações do seu grupo';
+    document.getElementById('hdr').className = 'hdr bg-green';
+    await carregarGC(grupoParam);
+  } else {
+    // Sem acesso
+    document.getElementById('main').innerHTML = `
+      <div style="text-align:center;padding:80px 20px">
+        <div style="font-size:48px;margin-bottom:16px">🔒</div>
+        <h2 style="font-family:Sora,sans-serif;color:var(--navy);margin-bottom:10px">Acesso restrito</h2>
+        <p style="color:var(--g400)">Use o link fornecido pelo Gestor do Projeto.</p>
+        <button class="btn btn-primary" style="margin-top:20px" onclick="location.href='admin.html'">
+          Sou o Gestor do Projeto →
+        </button>
+      </div>`;
+  }
+});
+
+// ── Carga GP ────────────────────────────────────────────────────────
+async function carregarGP() {
+  try {
+    const rows = await SB.get('avaliacoes','?order=criado_em.desc&limit=500');
+    AVALIACOES = rows;
+    renderGP(rows);
+  } catch(e) {
+    showErro('Erro ao carregar. Verifique a conexão.');
+  }
+}
+
+function renderGP(rows) {
+  const total = rows.length;
+  const concluidas = rows.filter(r=>r.status==='concluida').length;
+  const pendentes  = rows.filter(r=>r.status!=='concluida').length;
+
+  document.getElementById('main').innerHTML = `
+    <div class="kpi-mini">
+      <div class="kpm"><div class="kpm-lbl">Total</div><div class="kpm-val">${total}</div></div>
+      <div class="kpm"><div class="kpm-lbl">Concluídas</div><div class="kpm-val" style="color:var(--green)">${concluidas}</div></div>
+      <div class="kpm"><div class="kpm-lbl">Em andamento</div><div class="kpm-val" style="color:var(--amber)">${pendentes}</div></div>
+    </div>
+    <div class="filtros">
+      <div class="field"><label>Ciclo</label><select id="f-ciclo" onchange="filtrar()"><option value="">Todos</option></select></div>
+      <div class="field"><label>Time / BU</label><select id="f-time" onchange="filtrar()"><option value="">Todos</option></select></div>
+      <div class="field"><label>Status</label><select id="f-status" onchange="filtrar()">
+        <option value="">Todos</option>
+        <option value="criada">Aguardando GC</option>
+        <option value="em_andamento">Em andamento</option>
+        <option value="concluida">Concluída</option>
+      </select></div>
+      <div class="field"><label>Colaborador</label><input id="f-colab" placeholder="Nome..." oninput="filtrar()" /></div>
+    </div>
+    <div class="card">
+      <div class="table-hdr">
+        <h3>Avaliações</h3>
+        <span id="table-count" style="font-size:12px;color:var(--g400)"></span>
+      </div>
+      <div class="table-wrap">
+        <table class="list-table">
+          <thead><tr>
+            <th>Colaborador</th><th>Função</th><th>Grupo / GC</th><th>Ciclo</th>
+            <th>Etapa atual</th><th>Notas</th><th>Ação</th>
+          </tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+        <div class="empty" id="empty" style="display:none">
+          <div class="ei">📭</div><p>Nenhuma avaliação encontrada.</p>
+        </div>
+      </div>
+    </div>`;
+
+  // Popula filtros
+  const ciclos = [...new Set(rows.map(r=>r.ciclo).filter(Boolean))];
+  const times  = [...new Set(rows.map(r=>r.time).filter(Boolean))];
+  ciclos.forEach(c=>{const o=document.createElement('option');o.value=o.textContent=c;document.getElementById('f-ciclo').appendChild(o)});
+  times.forEach(t=>{const o=document.createElement('option');o.value=o.textContent=t;document.getElementById('f-time').appendChild(o)});
+
+  filtrar();
+}
+
+function filtrar() {
+  const ciclo  = document.getElementById('f-ciclo')?.value || '';
+  const time   = document.getElementById('f-time')?.value || '';
+  const status = document.getElementById('f-status')?.value || '';
+  const colab  = (document.getElementById('f-colab')?.value||'').toLowerCase();
+
+  let rows = AVALIACOES;
+  if (ciclo)  rows = rows.filter(r=>r.ciclo===ciclo);
+  if (time)   rows = rows.filter(r=>r.time===time);
+  if (status) rows = rows.filter(r=>r.status===status);
+  if (colab)  rows = rows.filter(r=>(r.colaborador||'').toLowerCase().includes(colab));
+
+  document.getElementById('table-count').textContent = `${rows.length} registro(s)`;
+  renderTabela(rows, 'gp');
+}
+
+// ── Carga GC ────────────────────────────────────────────────────────
+async function carregarGC(grupo) {
+  try {
+    const rows = await SB.get('avaliacoes',`?codigo_grupo=eq.${grupo}&order=colaborador.asc`);
+    if (!rows.length) {
+      document.getElementById('main').innerHTML=`
+        <div class="empty"><div class="ei">📭</div><p>Nenhuma avaliação encontrada para este grupo.</p></div>`;
+      return;
+    }
+    AVALIACOES = rows;
+    const grupoNome = rows[0]?.grupo_nome || 'Seu grupo';
+    document.getElementById('hdr-grupo').textContent = grupoNome;
+    document.getElementById('hdr-sub').textContent = `${grupoNome} · ${rows.length} colaborador(es)`;
+
+    const concluidas = rows.filter(r=>r.etapa_atual>2 || r.status==='concluida').length;
+
+    document.getElementById('main').innerHTML = `
+      <div class="kpi-mini">
+        <div class="kpm"><div class="kpm-lbl">No grupo</div><div class="kpm-val">${rows.length}</div></div>
+        <div class="kpm"><div class="kpm-lbl">Avaliados por você</div><div class="kpm-val" style="color:var(--green)">${concluidas}</div></div>
+        <div class="kpm"><div class="kpm-lbl">Pendentes</div><div class="kpm-val" style="color:var(--amber)">${rows.length-concluidas}</div></div>
+      </div>
+      <div class="card">
+        <div class="table-hdr">
+          <h3>Colaboradores do grupo</h3>
+          <span style="font-size:12px;color:var(--g400)">${rows.length} colaborador(es)</span>
+        </div>
+        <div class="table-wrap">
+          <table class="list-table">
+            <thead><tr>
+              <th>Colaborador</th><th>Função</th><th>Ciclo</th><th>Etapa</th><th>Ação</th>
+            </tr></thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+      </div>`;
+    renderTabela(rows, 'gc');
+  } catch(e) {
+    showErro('Erro ao carregar. Verifique o link.');
+  }
+}
+
+// ── Render tabela ───────────────────────────────────────────────────
+function renderTabela(rows, papel) {
+  const tbody = document.getElementById('tbody');
+  const empty = document.getElementById('empty');
+  if (!rows.length) {
+    tbody.innerHTML='';
+    if (empty) empty.style.display='block';
+    return;
+  }
+  if (empty) empty.style.display='none';
+  tbody.innerHTML='';
+
+  rows.forEach(row => {
+    const etapa = row.etapa_atual;
+    const st = statusLabel(etapa, row.status);
+    const codigoAcesso = papel==='gp' ? row.codigo_gp : row.codigo_gc;
+    const url = `avaliacao.html?id=${row.id}&c=${codigoAcesso}`;
+    const m2 = row.media_total;
+    const tr = document.createElement('tr');
+
+    if (papel === 'gp') {
+      tr.innerHTML = `
+        <td><strong>${row.colaborador||'—'}</strong></td>
+        <td>${row.funcao||'—'}</td>
+        <td>${row.grupo_nome||'—'}</td>
+        <td>${row.ciclo||'—'}</td>
+        <td><span class="etapa-badge ${st.cls}">${st.txt}</span></td>
+        <td>${m2!=null?`<span class="nota-badge ${notaCls(m2)}">${m2.toFixed(1)}</span>`:'<span class="nota-badge nota-0">—</span>'}</td>
+        <td><a href="${url}" class="btn btn-secondary btn-sm" style="text-decoration:none">Abrir →</a></td>`;
+    } else {
+      // GC — só mostra o que ele precisa, link abre etapa 2 com o código GC
+      const jaPreencheu = etapa > 2 || row.status === 'concluida';
+      const etapaTxt = jaPreencheu ? '✅ Preenchido' : etapa===1 ? '⏳ Aguardando criação' : '✏️ Aguarda você';
+      const etapaCls = jaPreencheu ? 'concluida' : etapa===2 ? 'etapa2' : 'etapa1';
+      tr.innerHTML = `
+        <td><strong>${row.colaborador||'—'}</strong></td>
+        <td>${row.funcao||'—'}</td>
+        <td>${row.ciclo||'—'}</td>
+        <td><span class="etapa-badge ${etapaCls}">${etapaTxt}</span></td>
+        <td>${etapa>=2?`<a href="${url}" class="btn btn-${jaPreencheu?'secondary':'primary'} btn-sm" style="text-decoration:none">${jaPreencheu?'Revisar':'Avaliar agora →'}</a>`:'<span style="color:var(--g400);font-size:12px">Aguardando etapa 1</span>'}</td>`;
+    }
+    tbody.appendChild(tr);
+    tr.style.cursor='pointer';
+    if (etapa >= 2 || papel==='gp') {
+      tr.addEventListener('click', e => { if(e.target.tagName!=='A' && e.target.tagName!=='BUTTON') location.href=url; });
+    }
+  });
+}
+
+function showErro(msg) {
+  document.getElementById('main').innerHTML=`
+    <div style="text-align:center;padding:80px 20px">
+      <div style="font-size:40px;margin-bottom:14px">❌</div>
+      <p style="color:var(--g600)">${msg}</p>
+    </div>`;
+}
+</script>
+</body>
+</html>

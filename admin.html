@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin — Gestor do Projeto</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Sora:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<style>
+#admin-wrap{display:none}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.page-title{font-family:'Sora',sans-serif;font-size:22px;font-weight:700;color:var(--navy);margin-bottom:4px}
+.page-sub{font-size:13px;color:var(--g400);margin-bottom:26px}
+.section-title{font-family:'Sora',sans-serif;font-size:15px;font-weight:700;color:var(--navy);margin-bottom:14px}
+
+/* Colab rows no lote */
+.colab-row{display:grid;grid-template-columns:1fr 1fr auto;gap:9px;align-items:center;margin-bottom:9px}
+.colab-row input{border:1.5px solid var(--g200);border-radius:8px;padding:8px 12px;
+  font-family:'Inter',sans-serif;font-size:13px;outline:none;width:100%}
+.colab-row input:focus{border-color:var(--blue)}
+.btn-del-row{background:none;border:none;cursor:pointer;color:var(--g400);font-size:17px;
+  padding:3px 6px;border-radius:4px;transition:color .2s}
+.btn-del-row:hover{color:var(--red)}
+
+/* Links card */
+.links-grid{display:flex;flex-direction:column;gap:9px}
+.link-row{display:flex;align-items:center;gap:11px;padding:12px 15px;
+  border:1.5px solid var(--g200);border-radius:8px}
+.link-icon{width:36px;height:36px;border-radius:8px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-size:17px}
+.li-gp{background:var(--blue-l)} .li-gc{background:var(--green-l)} .li-col{background:var(--amber-l)}
+.link-info{flex:1;min-width:0}
+.link-label{font-size:13px;font-weight:600;color:var(--g800)}
+.link-url{font-size:11.5px;color:var(--g400);font-family:'Courier New',monospace;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.btn-cp{padding:7px 13px;background:var(--g100);border:1.5px solid var(--g200);
+  border-radius:7px;font-size:11.5px;font-weight:600;color:var(--g600);cursor:pointer;
+  font-family:'Inter',sans-serif;white-space:nowrap;transition:all .2s}
+.btn-cp:hover{background:var(--blue);color:#fff;border-color:var(--blue)}
+
+/* Lote resultado */
+.lote-result{background:var(--g50);border:1px solid var(--g200);border-radius:var(--r);padding:18px;margin-top:18px;display:none}
+.lote-result h3{font-family:'Sora',sans-serif;font-size:14px;color:var(--navy);margin-bottom:12px}
+.av-link-block{background:#fff;border:1px solid var(--g200);border-radius:8px;padding:13px 15px;margin-bottom:9px}
+.av-link-block .av-nome{font-size:13.5px;font-weight:600;color:var(--g800);margin-bottom:8px}
+
+@media(max-width:640px){.grid2,.grid3{grid-template-columns:1fr}.colab-row{grid-template-columns:1fr auto}}
+</style>
+</head>
+<body>
+
+<!-- Lock -->
+<div class="lock" id="lock">
+  <div class="lock-box">
+    <div class="lock-icon">🔐</div>
+    <h2>Gestor do Projeto</h2>
+    <p>Acesso exclusivo ao painel de administração</p>
+    <input type="password" id="senha" placeholder="Senha do GP" onkeypress="if(event.key==='Enter')entrar()" />
+    <button class="btn btn-primary" style="width:100%" onclick="entrar()">Entrar</button>
+    <div class="lock-err" id="lock-err">Senha incorreta.</div>
+  </div>
+</div>
+
+<!-- Admin -->
+<div id="admin-wrap">
+<header class="hdr bg-navy">
+  <div class="hdr-brand">
+    <div class="hdr-logo">⚙️</div>
+    <div>
+      <div class="hdr-title">Painel do Gestor do Projeto</div>
+      <span class="hdr-sub">Criação de lotes e gestão de avaliações</span>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px">
+    <button class="hdr-pill" onclick="location.href='consulta.html'">📋 Consultar avaliações</button>
+    <button class="hdr-pill" onclick="sair()">Sair ↪</button>
+  </div>
+</header>
+
+<div class="wrap-wide">
+  <div class="page-title">⚙️ Painel de Administração</div>
+  <p class="page-sub">Crie lotes de avaliação, gerencie grupos e compartilhe os links com cada participante.</p>
+
+  <div class="grid2">
+
+    <!-- ── CRIAR LOTE ─────────────────────────────────────────── -->
+    <div>
+      <div class="card">
+        <div class="card-hdr"><div class="card-icon ci-blue">📦</div>
+          <div><div class="card-title">Criar lote de avaliações</div>
+            <div class="card-sub">Todos do lote recebem as mesmas competências</div></div>
+        </div>
+        <div class="card-body">
+          <div class="row2">
+            <div class="field"><label>Ciclo <span class="req">*</span></label>
+              <input id="l-ciclo" placeholder="Ex: 2025 — 1º Semestre" /></div>
+            <div class="field"><label>Time / BU</label>
+              <input id="l-time" placeholder="Ex: Supply BU PR" /></div>
+          </div>
+          <div class="field"><label>Nome do grupo / Gestor do Cliente <span class="req">*</span></label>
+            <input id="l-grupo" placeholder="Ex: CEVA — João Souza" /></div>
+
+          <div style="margin:14px 0 8px">
+            <label style="font-size:11px;font-weight:700;color:var(--g600);text-transform:uppercase;letter-spacing:.05em">
+              Colaboradores do lote <span class="req">*</span>
+            </label>
+          </div>
+          <div id="colab-list"></div>
+          <button type="button" class="btn-add-obj" id="btn-add-colab">+ Adicionar colaborador</button>
+
+          <div style="margin:16px 0 8px">
+            <label style="font-size:11px;font-weight:700;color:var(--g600);text-transform:uppercase;letter-spacing:.05em">
+              Competências do lote <span class="req">*</span>
+            </label>
+          </div>
+          <div id="lote-comp-list"></div>
+          <div class="comp-add-row">
+            <input id="lote-nova-comp" placeholder="Ex: Comunicação objetiva com o time" />
+            <button type="button" class="btn btn-secondary btn-sm" onclick="addLoteComp()">+ Add</button>
+          </div>
+
+          <button class="btn btn-primary" style="width:100%;margin-top:16px" onclick="criarLote()">
+            🚀 Criar lote e gerar links
+          </button>
+        </div>
+      </div>
+
+      <!-- Resultado do lote -->
+      <div class="lote-result" id="lote-result">
+        <h3>✅ Lote criado! Links gerados:</h3>
+        <div id="lote-links"></div>
+        <div class="infonote in-amber" style="margin-top:12px">
+          ⚠️ Salve estes links agora. O link do Gestor do Cliente é único para o grupo inteiro.
+          Os links de cada colaborador são individuais.
+        </div>
+      </div>
+    </div>
+
+    <!-- ── CONFIGURAÇÕES ──────────────────────────────────────── -->
+    <div>
+      <div class="card">
+        <div class="card-hdr"><div class="card-icon ci-amber">📋</div>
+          <div><div class="card-title">Competências padrão</div>
+            <div class="card-sub">Base pré-carregada ao criar um novo lote</div></div>
+        </div>
+        <div class="card-body">
+          <div id="cfg-comp-list"></div>
+          <div class="comp-add-row">
+            <input id="cfg-nova-comp" placeholder="Nova competência padrão" />
+            <button type="button" class="btn btn-secondary btn-sm" onclick="addCfgComp()">+ Add</button>
+          </div>
+          <button class="btn btn-secondary" style="width:100%;margin-top:12px" onclick="salvarCfg()">💾 Salvar padrão</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-hdr"><div class="card-icon ci-green">🔗</div>
+          <div><div class="card-title">Acessos por grupo</div>
+            <div class="card-sub">Link do Gestor do Cliente por grupo</div></div>
+        </div>
+        <div class="card-body">
+          <div id="grupos-links">
+            <p style="color:var(--g400);font-size:13px">Crie um lote para ver os links de grupo aqui.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /grid2 -->
+</div>
+</div><!-- /admin-wrap -->
+
+<div id="toast"></div>
+<script src="config.js"></script>
+<script>
+// ── Auth ────────────────────────────────────────────────────────────
+function entrar() {
+  if (document.getElementById('senha').value === GP_SENHA) {
+    sessionStorage.setItem('gp_auth','1');
+    document.getElementById('lock').style.display='none';
+    document.getElementById('admin-wrap').style.display='block';
+    init();
+  } else {
+    document.getElementById('lock-err').style.display='block';
+    document.getElementById('senha').value='';
+  }
+}
+function sair() { sessionStorage.removeItem('gp_auth'); location.reload(); }
+
+// ── Config ──────────────────────────────────────────────────────────
+let CFG_COMPS = [
+  'Relacionamento interpessoal',
+  'Responsabilidade',
+  'Solução de Problemas',
+  'Administração de conflitos',
+  'Iniciativa e empreendedorismo',
+];
+let LOTE_COMPS = [];
+
+function loadCfg() {
+  try {
+    const s = localStorage.getItem('ap_comps');
+    if (s) CFG_COMPS = JSON.parse(s);
+  } catch(e) {}
+}
+function salvarCfg() {
+  localStorage.setItem('ap_comps', JSON.stringify(CFG_COMPS));
+  showToast('Competências padrão salvas!');
+}
+
+function renderCfgComps() {
+  const el = document.getElementById('cfg-comp-list'); el.innerHTML='';
+  CFG_COMPS.forEach((c,i) => {
+    const d = document.createElement('div'); d.className='comp-config-item';
+    d.innerHTML=`<span>${i+1}. ${c}</span>
+      <button type="button" class="btn-del-comp" onclick="removeCfgComp(${i})">×</button>`;
+    el.appendChild(d);
+  });
+}
+function addCfgComp() {
+  const inp=document.getElementById('cfg-nova-comp');
+  const v=inp.value.trim(); if(!v)return;
+  CFG_COMPS.push(v); renderCfgComps(); inp.value='';
+}
+function removeCfgComp(i) { CFG_COMPS.splice(i,1); renderCfgComps(); }
+
+// ── Lote — colaboradores ────────────────────────────────────────────
+let colabCount=0;
+function addColabRow(nome='',func='') {
+  colabCount++;
+  const list=document.getElementById('colab-list');
+  const n=list.children.length+1;
+  const d=document.createElement('div'); d.className='colab-row'; d.id=`cr-${colabCount}`;
+  d.innerHTML=`
+    <input placeholder="Nome completo do colaborador" value="${nome}" />
+    <input placeholder="Função / Cargo" value="${func}" />
+    <button type="button" class="btn-del-row" onclick="removeColabRow('cr-${colabCount}')">×</button>`;
+  list.appendChild(d);
+}
+function removeColabRow(id) {
+  if(document.getElementById('colab-list').children.length<=1)return;
+  document.getElementById(id)?.remove();
+}
+
+// ── Lote — competências ─────────────────────────────────────────────
+function initLoteComps() {
+  LOTE_COMPS = [...CFG_COMPS];
+  renderLoteComps();
+}
+function renderLoteComps() {
+  const el=document.getElementById('lote-comp-list'); el.innerHTML='';
+  LOTE_COMPS.forEach((c,i)=>{
+    const d=document.createElement('div'); d.className='comp-config-item';
+    d.innerHTML=`<span>${i+1}. ${c}</span>
+      <button type="button" class="btn-del-comp" onclick="removeLoteComp(${i})">×</button>`;
+    el.appendChild(d);
+  });
+}
+function addLoteComp() {
+  const inp=document.getElementById('lote-nova-comp');
+  const v=inp.value.trim(); if(!v)return;
+  LOTE_COMPS.push(v); renderLoteComps(); inp.value='';
+}
+function removeLoteComp(i) { LOTE_COMPS.splice(i,1); renderLoteComps(); }
+
+// ── Criar lote ──────────────────────────────────────────────────────
+async function criarLote() {
+  const ciclo = document.getElementById('l-ciclo').value.trim();
+  const time  = document.getElementById('l-time').value.trim();
+  const grupo = document.getElementById('l-grupo').value.trim();
+
+  if (!ciclo || !grupo) { showToast('Preencha ciclo e grupo.','error'); return; }
+  if (LOTE_COMPS.length<1) { showToast('Adicione ao menos uma competência.','error'); return; }
+
+  const colabRows = Array.from(document.querySelectorAll('#colab-list .colab-row'));
+  const colabs = colabRows.map(row => {
+    const inps = row.querySelectorAll('input');
+    return { nome: inps[0].value.trim(), funcao: inps[1].value.trim() };
+  }).filter(c => c.nome);
+
+  if (!colabs.length) { showToast('Adicione ao menos um colaborador.','error'); return; }
+
+  const btn = document.querySelector('[onclick="criarLote()"]');
+  btn.disabled=true; btn.textContent='Criando...';
+
+  // Código de grupo (compartilhado entre todos do lote para o GC)
+  const codigoGrupo = gerarCodigo(10);
+
+  try {
+    const criadas = [];
+    for (const c of colabs) {
+      const codigoGP    = gerarCodigo(10);
+      const codigoGC    = codigoGrupo; // MESMO código para todos do grupo
+      const codigoColab = gerarCodigo(10);
+
+      const payload = {
+        codigo_gp: codigoGP,
+        codigo_gc: codigoGC,
+        codigo_colaborador: codigoColab,
+        codigo_grupo: codigoGrupo,
+        grupo_nome: grupo,
+        ciclo, time,
+        colaborador: c.nome,
+        funcao: c.funcao,
+        competencias_config: LOTE_COMPS,
+        etapa_atual: 1,
+        status: 'criada',
+        etapa1_dados: { colaborador:c.nome, funcao:c.funcao, ciclo, time, objetivos:[] },
+        criado_em: new Date().toISOString(),
+        atualizado_em: new Date().toISOString(),
+      };
+      const res = await SB.post('avaliacoes', payload);
+      criadas.push({ ...c, id: res[0].id, codigoGP, codigoGC, codigoColab });
+    }
+
+    // Mostra links
+    const base = location.origin + location.pathname.replace('admin.html','');
+    const loteDiv = document.getElementById('lote-result');
+    const linksDiv = document.getElementById('lote-links');
+    linksDiv.innerHTML='';
+
+    // Link do GC (mesmo para o grupo todo)
+    const gcUrl = `${base}consulta.html?grupo=${codigoGrupo}`;
+    linksDiv.innerHTML=`<div class="av-link-block" style="border-color:var(--green);background:var(--green-l)">
+      <div class="av-nome">🏢 Link do Gestor do Cliente — <strong>${grupo}</strong> (${criadas.length} colaboradores)</div>
+      ${renderLinkRow('🏢','Acesso ao grupo',gcUrl,'li-gc')}
+    </div>`;
+
+    criadas.forEach(c => {
+      const gpUrl  = `${base}avaliacao.html?id=${c.id}&c=${c.codigoGP}`;
+      const colUrl = `${base}avaliacao.html?id=${c.id}&c=${c.codigoColab}`;
+      linksDiv.innerHTML+=`<div class="av-link-block">
+        <div class="av-nome">👤 ${c.nome} — ${c.funcao||'—'}</div>
+        ${renderLinkRow('👔','Link do GP (Etapa 1 e 4)',gpUrl,'li-gp')}
+        ${renderLinkRow('🙋','Link do Colaborador (Etapa 3)',colUrl,'li-col')}
+      </div>`;
+    });
+
+    loteDiv.style.display='block';
+    loteDiv.scrollIntoView({behavior:'smooth'});
+
+    // Atualiza lista de grupos
+    atualizarGruposLinks(grupo, codigoGrupo, base);
+    showToast(`Lote criado: ${criadas.length} avaliações!`);
+
+  } catch(e) {
+    console.error(e);
+    showToast('Erro ao criar lote. Verifique a conexão.','error');
+  }
+  btn.disabled=false; btn.textContent='🚀 Criar lote e gerar links';
+}
+
+function renderLinkRow(icon, label, url, iconCls) {
+  return `<div class="link-row">
+    <div class="link-icon ${iconCls}">${icon}</div>
+    <div class="link-info"><div class="link-label">${label}</div>
+      <div class="link-url">${url}</div></div>
+    <button class="btn-cp" onclick="copiar('${url}',this)">Copiar</button>
+  </div>`;
+}
+
+// Mantém lista de grupos por sessão
+let grupos = [];
+function atualizarGruposLinks(nome, codigo, base) {
+  if (!grupos.find(g=>g.codigo===codigo)) grupos.push({nome,codigo});
+  const el = document.getElementById('grupos-links'); el.innerHTML='';
+  grupos.forEach(g => {
+    const url = `${base}consulta.html?grupo=${g.codigo}`;
+    el.innerHTML+=`<div class="link-row" style="margin-bottom:8px">
+      <div class="link-icon li-gc">🏢</div>
+      <div class="link-info"><div class="link-label">${g.nome}</div>
+        <div class="link-url">${url}</div></div>
+      <button class="btn-cp" onclick="copiar('${url}',this)">Copiar</button>
+    </div>`;
+  });
+}
+
+function copiar(url, btn) {
+  navigator.clipboard.writeText(url).then(()=>{
+    const orig=btn.textContent; btn.textContent='✓ Copiado';
+    setTimeout(()=>btn.textContent=orig,1500);
+  });
+}
+
+// ── Init ────────────────────────────────────────────────────────────
+function init() {
+  loadCfg();
+  renderCfgComps();
+  initLoteComps();
+  addColabRow(); addColabRow(); addColabRow();
+  document.getElementById('btn-add-colab').addEventListener('click', ()=>addColabRow());
+  document.getElementById('lote-nova-comp').addEventListener('keypress', e=>{
+    if(e.key==='Enter'){e.preventDefault();addLoteComp();}
+  });
+}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  if(sessionStorage.getItem('gp_auth')==='1'){
+    document.getElementById('lock').style.display='none';
+    document.getElementById('admin-wrap').style.display='block';
+    init();
+  } else document.getElementById('senha').focus();
+});
+</script>
+</body>
+</html>

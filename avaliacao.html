@@ -1,0 +1,1061 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Avaliação de Performance</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Sora:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- Header dinâmico -->
+<header class="hdr bg-navy" id="hdr">
+  <div class="hdr-brand">
+    <div class="hdr-logo" id="hdr-logo">📋</div>
+    <div>
+      <div class="hdr-title" id="hdr-title">Avaliação de Performance</div>
+      <span class="hdr-sub" id="hdr-sub">Carregando...</span>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center">
+    <span id="hdr-ciclo" style="color:rgba(255,255,255,.7);font-size:12px"></span>
+    <button class="hdr-pill" onclick="location.href='consulta.html'">← Consultar avaliações</button>
+  </div>
+</header>
+
+<div class="wrap" id="main-wrap">
+
+  <!-- Timeline -->
+  <div class="timeline" id="timeline"></div>
+
+  <!-- Banner de papel -->
+  <div id="role-banner"></div>
+
+  <!-- Telas dinâmicas -->
+  <div id="form-screen">
+    <div class="prog-wrap">
+      <div class="prog-label"><span id="prog-txt">Preenchimento em andamento</span><span id="prog-pct">0%</span></div>
+      <div class="prog-track"><div class="prog-fill" id="prog-fill"></div></div>
+    </div>
+    <form id="form" novalidate></form>
+  </div>
+
+  <div class="success-screen" id="success-screen">
+    <div class="success-icon" id="suc-icon">✅</div>
+    <h2 id="suc-title">Etapa concluída!</h2>
+    <p id="suc-msg">Sua parte foi salva com sucesso.</p>
+    <button class="btn btn-primary" onclick="location.href='consulta.html'">Ver todas as avaliações</button>
+  </div>
+
+</div>
+<div id="toast"></div>
+
+<script src="config.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════════
+let AV = null;       // avaliação carregada do Supabase
+let PAPEL = null;    // 'gp' | 'gc' | 'colaborador'
+let objCount = 0;
+let podeTreinar = null;
+let compConfig = []; // competências configuradas para esta avaliação
+
+const VALS = [4, 3, 2, 1];
+const LBLS = ['acima','dentro','em_desenvolvimento','nao_atende'];
+const LBLS_TXT = ['Acima do esperado','Dentro do esperado','Em desenvolvimento','Não atende'];
+
+// ═══════════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', async () => {
+  const avId  = urlParam('id');
+  const codigoBruto = urlParam('c');   // código de acesso do colaborador ou gc
+
+  if (!avId) { mostrarErro('Link inválido. Nenhuma avaliação especificada.'); return; }
+
+  try {
+    const rows = await SB.get('avaliacoes', `?id=eq.${avId}`);
+    if (!rows.length) { mostrarErro('Avaliação não encontrada.'); return; }
+    AV = rows[0];
+    compConfig = AV.competencias_config || [];
+
+    // Determina o papel pelo código de acesso
+    if (codigoBruto === AV.codigo_gp) {
+      PAPEL = 'gp';
+    } else if (codigoBruto === AV.codigo_gc) {
+      PAPEL = 'gc';
+    } else if (codigoBruto === AV.codigo_colaborador) {
+      PAPEL = 'colaborador';
+    } else {
+      mostrarErro('Código de acesso inválido. Verifique o link recebido.');
+      return;
+    }
+
+    renderTimeline();
+    renderBanner();
+    renderForm();
+
+  } catch (e) {
+    console.error(e);
+    mostrarErro('Erro ao carregar a avaliação. Verifique a conexão.');
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// TIMELINE
+// ═══════════════════════════════════════════════════════════════════
+function renderTimeline() {
+  const etapa = AV.etapa_atual;
+  const concluida = AV.status === 'concluida';
+  const steps = [
+    { n:1, lbl:'Criação\n(Gestor Projeto)' },
+    { n:2, lbl:'Avaliação\n(Gestor Cliente)' },
+    { n:3, lbl:'Colaborador' },
+    { n:4, lbl:'Revisão Final\n(Gestor Projeto)' },
+  ];
+  const tl = document.getElementById('timeline');
+  tl.innerHTML = '';
+  steps.forEach((s, i) => {
+    const done = concluida || s.n < etapa;
+    const active = !concluida && s.n === etapa;
+    const col = document.createElement('div'); col.className = 'tl-col';
+    col.innerHTML = `<div class="tl-dot${done?' done':active?' active':''}">
+      ${done ? '✓' : s.n}</div>
+      <div class="tl-label${active?' active':done?' done':''}">${s.lbl}</div>`;
+    tl.appendChild(col);
+    if (i < steps.length - 1) {
+      const line = document.createElement('div');
+      line.className = `tl-line${done?' done':''}`;
+      line.style.marginBottom = '18px';
+      tl.appendChild(line);
+    }
+  });
+  // atualiza header
+  document.getElementById('hdr-ciclo').textContent = AV.ciclo || '';
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// BANNER
+// ═══════════════════════════════════════════════════════════════════
+function renderBanner() {
+  const etapa = AV.etapa_atual;
+  const status = AV.status;
+  const banners = {
+    gp: { cls:'rb-gp', icon:'👔', titulo:'Gestor do Projeto', sub: status==='concluida'
+      ? 'Esta avaliação foi concluída. Visualizando em modo leitura.'
+      : etapa===1 ? 'Etapa 1 — Preencha as informações iniciais e defina as competências.'
+      : etapa>=4 ? 'Etapa 4 — Revise tudo e finalize a avaliação.'
+      : 'Visualização — aguardando preenchimento das outras etapas.' },
+    gc: { cls:'rb-gc', icon:'🏢', titulo:'Gestor do Cliente', sub: etapa===2
+      ? 'Etapa 2 — Avalie as competências e preencha o feedback do colaborador.'
+      : etapa<2 ? 'Esta avaliação ainda não chegou à sua etapa. Aguarde o Gestor do Projeto.'
+      : 'Você já preencheu sua parte. Obrigado!' },
+    colaborador: { cls:'rb-col', icon:'🙋', titulo:'Colaborador', sub: etapa===3
+      ? 'Etapa 3 — Você pode visualizar a avaliação, complementar o feedback e comentar em cada seção.'
+      : etapa<3 ? 'Esta avaliação ainda não chegou à sua etapa. Aguarde.'
+      : 'Você já preencheu sua parte. Obrigado!' },
+  };
+  const b = banners[PAPEL];
+  document.getElementById('role-banner').innerHTML = `
+    <div class="role-banner ${b.cls}">
+      <div class="rb-icon">${b.icon}</div>
+      <div><div class="rb-title">${b.titulo}</div><div class="rb-sub">${b.sub}</div></div>
+    </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// RENDER FORM — decide o que mostrar baseado em etapa + papel
+// ═══════════════════════════════════════════════════════════════════
+function renderForm() {
+  const etapa = AV.etapa_atual;
+  const status = AV.status;
+  const form = document.getElementById('form');
+  form.innerHTML = '';
+
+  // GP — etapa 1
+  if (PAPEL === 'gp' && etapa === 1) {
+    renderEtapa1GP(form);
+    return;
+  }
+
+  // GC — etapa 2
+  if (PAPEL === 'gc' && etapa === 2) {
+    renderEtapa2GC(form);
+    return;
+  }
+
+  // Colaborador — etapa 3
+  if (PAPEL === 'colaborador' && etapa === 3) {
+    renderEtapa3Colaborador(form);
+    return;
+  }
+
+  // GP — revisão final (etapa 4 ou status concluida)
+  if (PAPEL === 'gp' && (etapa === 4 || status === 'concluida')) {
+    renderEtapa4Revisao(form);
+    return;
+  }
+
+  // Qualquer outro estado: visualização somente leitura
+  renderVisualizacao(form);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ETAPA 1 — Gestor do Projeto cria a avaliação
+// ═══════════════════════════════════════════════════════════════════
+function renderEtapa1GP(form) {
+  document.getElementById('hdr-title').textContent = 'Etapa 1 — Criação';
+  document.getElementById('hdr-logo').textContent = '📝';
+
+  form.innerHTML = `
+    ${secHdr('ci-navy','📋','Dados do Colaborador','Informações gerais para identificação')}
+    <div class="card-body">
+      <div class="row2">
+        <div class="field"><label>Colaborador <span class="req">*</span></label>
+          <input id="colaborador" placeholder="Nome completo" required /></div>
+        <div class="field"><label>Função / Cargo <span class="req">*</span></label>
+          <input id="funcao" placeholder="Ex: Analista de Supply" required /></div>
+      </div>
+      <div class="row3">
+        <div class="field"><label>Cliente / Projeto</label>
+          <input id="cliente" placeholder="Ex: CEVA, Bosch..." /></div>
+        <div class="field"><label>Ciclo <span class="req">*</span></label>
+          <input id="ciclo" value="${AV.ciclo||''}" required /></div>
+        <div class="field"><label>Time / BU</label>
+          <input id="time" value="${AV.time||''}" /></div>
+      </div>
+    </div>
+    ${secHdr('ci-blue','⭐','Competências avaliadas',
+      'Defina as competências específicas para este colaborador/time. O Gestor do Cliente avaliará cada uma.')}
+    <div class="card-body">
+      <div class="infonote in-blue">
+        💡 Você pode personalizar as competências para este time. As alterações valem somente para esta avaliação.
+      </div>
+      <div id="comp-list"></div>
+      <div class="comp-add-row">
+        <input id="nova-comp" placeholder="Ex: Comunicação clara e objetiva com o time" />
+        <button type="button" class="btn btn-secondary btn-sm" onclick="addComp()">+ Adicionar</button>
+      </div>
+    </div>
+    ${secHdr('ci-green','🎯','Objetivos para o período','Metas definidas pelo Gestor do Projeto')}
+    <div class="card-body">
+      <div id="obj-list"></div>
+      <button type="button" class="btn-add-obj" id="btn-add-obj">+ Adicionar objetivo</button>
+    </div>
+    ${secHdr('ci-amber','📝','Observações iniciais','Contexto ou instruções para o Gestor do Cliente (opcional)')}
+    <div class="card-body">
+      <div class="field row1">
+        <div class="field"><label>Observações</label>
+          <textarea id="obs_gp" placeholder="Contexto do período, pontos a observar...">${AV.etapa1_dados?.obs_gp||''}</textarea>
+        </div>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button type="button" class="btn btn-secondary" onclick="salvarRascunho()">💾 Salvar rascunho</button>
+      <button type="submit" class="btn btn-primary" id="btn-submit">Avançar para Gestor do Cliente →</button>
+    </div>`;
+
+  // Preenche campos salvos
+  const d = AV.etapa1_dados || {};
+  if (d.colaborador) document.getElementById('colaborador').value = d.colaborador;
+  if (d.funcao) document.getElementById('funcao').value = d.funcao;
+  if (d.cliente) document.getElementById('cliente').value = d.cliente;
+
+  // Competências salvas ou padrão
+  compConfig = AV.competencias_config?.length ? AV.competencias_config : [
+    'Relacionamento interpessoal',
+    'Responsabilidade',
+    'Solução de Problemas',
+    'Administração de conflitos',
+    'Iniciativa e empreendedorismo',
+  ];
+  renderCompList();
+
+  // Objetivos
+  const objs = d.objetivos || [];
+  if (objs.length) objs.forEach(o => addObj(o));
+  else { addObj(); addObj(); addObj(); }
+
+  document.getElementById('btn-add-obj').addEventListener('click', () => addObj());
+  document.getElementById('nova-comp').addEventListener('keypress', e => { if (e.key==='Enter'){e.preventDefault();addComp();} });
+
+  form.addEventListener('submit', e => { e.preventDefault(); submitEtapa1(); });
+  document.getElementById('form').addEventListener('input', updateProg);
+}
+
+function secHdr(iconCls, emoji, title, sub) {
+  return `<div class="card" style="margin-bottom:0;border-radius:var(--r) var(--r) 0 0;border-bottom:none">
+    <div class="card-hdr">
+      <div class="card-icon ${iconCls}">${emoji}</div>
+      <div><div class="card-title">${title}</div><div class="card-sub">${sub}</div></div>
+    </div></div>
+    <div class="card" style="border-radius:0 0 var(--r) var(--r);margin-bottom:18px">`;
+}
+
+function renderCompList() {
+  const el = document.getElementById('comp-list');
+  el.innerHTML = '';
+  compConfig.forEach((c, i) => {
+    const d = document.createElement('div'); d.className = 'comp-config-item';
+    d.innerHTML = `<span>${i+1}. ${c}</span>
+      <button type="button" class="btn-del-comp" onclick="removeComp(${i})" title="Remover">×</button>`;
+    el.appendChild(d);
+  });
+}
+function addComp() {
+  const inp = document.getElementById('nova-comp');
+  const v = inp.value.trim(); if (!v) return;
+  compConfig.push(v); renderCompList(); inp.value = '';
+}
+function removeComp(i) { compConfig.splice(i,1); renderCompList(); }
+
+let objCount2 = 0;
+function addObj(val = '') {
+  objCount2++;
+  const list = document.getElementById('obj-list');
+  const d = document.createElement('div'); d.className = 'obj-item'; d.id = `obj-${objCount2}`;
+  d.innerHTML = `<div class="obj-num">${list.children.length+1}</div>
+    <input type="text" placeholder="Descreva o objetivo..." value="${val}" />
+    <button type="button" class="btn-del-obj" onclick="removeObj('obj-${objCount2}')" title="Remover">×</button>`;
+  list.appendChild(d); renumObjs();
+}
+function removeObj(id) {
+  if (document.getElementById('obj-list').children.length <= 1) return;
+  document.getElementById(id)?.remove(); renumObjs();
+}
+function renumObjs() {
+  document.querySelectorAll('#obj-list .obj-num').forEach((el,i)=>el.textContent=i+1);
+}
+
+async function salvarRascunho() {
+  const body = coletarEtapa1Dados(false);
+  try {
+    await SB.patch('avaliacoes', AV.id, { etapa1_dados: body, competencias_config: compConfig });
+    AV.etapa1_dados = body; AV.competencias_config = compConfig;
+    showToast('Rascunho salvo!');
+  } catch(e) { showToast('Erro ao salvar.','error'); }
+}
+
+function coletarEtapa1Dados(strict=true) {
+  return {
+    colaborador: document.getElementById('colaborador').value.trim(),
+    funcao: document.getElementById('funcao').value.trim(),
+    cliente: document.getElementById('cliente').value.trim(),
+    ciclo: document.getElementById('ciclo').value.trim(),
+    time: document.getElementById('time').value.trim(),
+    obs_gp: document.getElementById('obs_gp').value.trim(),
+    objetivos: Array.from(document.querySelectorAll('#obj-list input')).map(i=>i.value.trim()).filter(Boolean),
+  };
+}
+
+async function submitEtapa1() {
+  const d = coletarEtapa1Dados(true);
+  if (!d.colaborador || !d.funcao || !d.ciclo) {
+    showToast('Preencha os campos obrigatórios.','error'); return;
+  }
+  if (compConfig.length < 1) { showToast('Adicione ao menos uma competência.','error'); return; }
+  const btn = document.getElementById('btn-submit');
+  btn.disabled = true; btn.textContent = 'Salvando...';
+  try {
+    await SB.patch('avaliacoes', AV.id, {
+      etapa1_dados: d, competencias_config: compConfig,
+      colaborador: d.colaborador, funcao: d.funcao,
+      cliente: d.cliente, ciclo: d.ciclo, time: d.time,
+      etapa_atual: 2, status: 'em_andamento',
+      atualizado_em: new Date().toISOString(),
+    });
+    document.getElementById('form-screen').style.display = 'none';
+    const ss = document.getElementById('success-screen');
+    ss.style.display = 'block';
+    document.getElementById('suc-title').textContent = 'Etapa 1 concluída!';
+    document.getElementById('suc-msg').textContent =
+      'A avaliação foi criada. Compartilhe o link do Gestor do Cliente para prosseguir.';
+    document.getElementById('suc-icon').textContent = '🎉';
+  } catch(e) {
+    showToast('Erro ao avançar.','error');
+    btn.disabled = false; btn.textContent = 'Avançar para Gestor do Cliente →';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ETAPA 2 — Gestor do Cliente avalia
+// ═══════════════════════════════════════════════════════════════════
+function renderEtapa2GC(form) {
+  document.getElementById('hdr-title').textContent = 'Etapa 2 — Avaliação do Gestor do Cliente';
+  document.getElementById('hdr').className = 'hdr bg-green';
+  document.getElementById('hdr-logo').textContent = '🏢';
+
+  const d1 = AV.etapa1_dados || {};
+  const d2 = AV.etapa2_dados || {};
+
+  form.innerHTML = `
+    <!-- Dados do colaborador (somente leitura) -->
+    <div class="card">
+      <div class="card-hdr"><div class="card-icon ci-navy">👤</div>
+        <div><div class="card-title">Colaborador avaliado</div><div class="card-sub">Informações da etapa de criação</div></div>
+      </div>
+      <div class="card-body">
+        <div class="row2">
+          <div class="readonly-row"><span class="ro-label">Nome</span><span class="ro-val">${d1.colaborador||'—'}</span></div>
+          <div class="readonly-row"><span class="ro-label">Função</span><span class="ro-val">${d1.funcao||'—'}</span></div>
+        </div>
+        <div class="row2" style="margin-top:8px">
+          <div class="readonly-row"><span class="ro-label">Cliente / Projeto</span><span class="ro-val">${d1.cliente||'—'}</span></div>
+          <div class="readonly-row"><span class="ro-label">Ciclo</span><span class="ro-val">${AV.ciclo||'—'}</span></div>
+        </div>
+        ${d1.obs_gp ? `<div class="infonote in-blue" style="margin-top:12px">
+          📌 <strong>Observações do Gestor do Projeto:</strong> ${d1.obs_gp}</div>` : ''}
+      </div>
+    </div>
+
+    <!-- Competências -->
+    <div class="card">
+      <div class="card-hdr"><div class="card-icon ci-blue">⭐</div>
+        <div><div class="card-title">Avaliação de Competências</div>
+          <div class="card-sub">Avalie cada competência — sua avaliação é privada até a revisão final</div></div>
+      </div>
+      <div class="card-body">
+        <div class="legenda">
+          <div class="leg-item"><div class="leg-dot" style="background:#059669"></div>Acima do esperado (4)</div>
+          <div class="leg-item"><div class="leg-dot" style="background:#2563EB"></div>Dentro do esperado (3)</div>
+          <div class="leg-item"><div class="leg-dot" style="background:#D97706"></div>Em desenvolvimento (2)</div>
+          <div class="leg-item"><div class="leg-dot" style="background:#DC2626"></div>Não atende (1)</div>
+        </div>
+        <table class="comp-table"><thead><tr>
+          <th>Competência</th><th>Acima</th><th>Dentro</th><th>Em desenv.</th><th>Não atende</th><th>Média</th>
+        </tr></thead><tbody id="comp-body"></tbody></table>
+      </div>
+    </div>
+
+    <!-- Avaliação geral -->
+    <div class="card">
+      <div class="card-hdr"><div class="card-icon ci-green">📊</div>
+        <div><div class="card-title">Avaliação Geral</div><div class="card-sub">Qualidade, prazo e satisfação</div></div>
+      </div>
+      <div class="card-body">
+        <table class="comp-table"><thead><tr>
+          <th>Critério</th><th>Acima</th><th>Dentro</th><th>Em desenv.</th><th>Não atende</th><th>Média</th>
+        </tr></thead><tbody id="geral-body"></tbody></table>
+      </div>
+    </div>
+
+    <!-- Feedback qualitativo -->
+    <div class="card" id="sec-feedback">
+      <div class="card-hdr"><div class="card-icon ci-amber">💬</div>
+        <div><div class="card-title">Feedback Qualitativo</div>
+          <div class="card-sub">Pontos positivos e áreas de desenvolvimento — o colaborador poderá comentar nesta seção</div></div>
+      </div>
+      <div class="card-body">
+        <div class="field"><label>Pontos positivos</label>
+          <textarea id="pontos_pos" placeholder="Descreva os pontos fortes observados no período...">${d2.pontos_pos||''}</textarea></div>
+        <div class="field"><label>Pontos a desenvolver</label>
+          <textarea id="pontos_dev" placeholder="Descreva as áreas de melhoria esperadas...">${d2.pontos_dev||''}</textarea></div>
+      </div>
+    </div>
+
+    <!-- Treinamentos -->
+    <div class="card">
+      <div class="card-hdr"><div class="card-icon ci-amber">🎓</div>
+        <div><div class="card-title">Treinamentos</div><div class="card-sub">Capacitações do colaborador</div></div>
+      </div>
+      <div class="card-body">
+        <div class="field" style="margin-bottom:14px"><label>O colaborador pode ministrar treinamentos?</label>
+          <div class="toggle-group" id="treinar-grp">
+            <button type="button" class="tgl-btn" data-v="sim" onclick="tglTreinar(this)">✅ Sim</button>
+            <button type="button" class="tgl-btn" data-v="nao" onclick="tglTreinar(this)">❌ Não</button>
+          </div></div>
+        <div id="ferramentas-wrap" style="display:none" class="field">
+          <label>Quais ferramentas pode ensinar?</label>
+          <input id="ferramentas" placeholder="Ex: Excel, SAP, Power BI..." value="${d2.ferramentas||''}" /></div>
+        <div class="field"><label>Treinamentos recebidos no período</label>
+          <textarea id="treinamentos" placeholder="Liste os treinamentos realizados...">${d2.treinamentos||''}</textarea></div>
+      </div>
+    </div>
+
+    <!-- Feedback -->
+    <div class="card">
+      <div class="card-hdr"><div class="card-icon ci-green">🤝</div>
+        <div><div class="card-title">Entrevista Individual — Feedback</div><div class="card-sub">Como o feedback será conduzido</div></div>
+      </div>
+      <div class="card-body">
+        <div class="fb-options">
+          <label class="fb-opt"><input type="radio" name="feedback_modo" value="simultaneo" ${d2.feedback_modo==='simultaneo'?'checked':''} />
+            <div><div class="fb-opt-lbl">Feedback com o colaborador e o RH Segula simultaneamente</div>
+              <div class="fb-opt-sub">Ambos participam da conversa ao mesmo tempo</div></div></label>
+          <label class="fb-opt"><input type="radio" name="feedback_modo" value="apenas_rh" ${d2.feedback_modo==='apenas_rh'?'checked':''} />
+            <div><div class="fb-opt-lbl">Feedback apenas para o RH, que repassa ao colaborador</div>
+              <div class="fb-opt-sub">O RH intermediará a comunicação</div></div></label>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button type="button" class="btn btn-secondary" onclick="salvarRascunhoGC()">💾 Salvar rascunho</button>
+      <button type="submit" class="btn btn-success" id="btn-submit">Concluir e enviar para Colaborador →</button>
+    </div>`;
+
+  // Monta tabelas
+  buildCompTable('comp-body', compConfig, 'comp', d2.competencias || {});
+  buildCompTable('geral-body', [
+    'Qualidade — Avalie a qualidade geral das atividades entregues.',
+    'Prazo de entrega (Deadline) — Cumprimento dos prazos definidos.',
+    'Nível de satisfação — Avaliação geral do serviço prestado.',
+  ], 'geral', d2.avaliacao_geral || {});
+
+  // Pode treinar
+  if (d2.pode_treinar) {
+    const btn = document.querySelector(`#treinar-grp [data-v="${d2.pode_treinar}"]`);
+    if (btn) { podeTreinar = d2.pode_treinar; btn.classList.add(podeTreinar==='sim'?'tgl-sim':'tgl-nao'); }
+    if (d2.pode_treinar === 'sim') document.getElementById('ferramentas-wrap').style.display='block';
+  }
+
+  form.addEventListener('input', updateProg);
+  form.addEventListener('change', updateProg);
+  form.addEventListener('submit', e => { e.preventDefault(); submitEtapa2(); });
+}
+
+function buildCompTable(tbodyId, items, prefix, savedVals) {
+  const tbody = document.getElementById(tbodyId);
+  items.forEach((item, idx) => {
+    const tr = document.createElement('tr');
+    const td0 = document.createElement('td'); td0.textContent = item; tr.appendChild(td0);
+    LBLS.forEach((lbl, col) => {
+      const td = document.createElement('td'); td.setAttribute('data-col', col);
+      const uid = `${prefix}_${idx}_${lbl}`;
+      const saved = savedVals[`${prefix}_${idx}`];
+      const checked = saved === VALS[col] ? 'checked' : '';
+      td.innerHTML = `<div class="rv" data-col="${col}">
+        <input type="radio" name="${prefix}_${idx}" id="${uid}" value="${VALS[col]}" ${checked} />
+        <label for="${uid}" title="${LBLS_TXT[col]}"></label></div>`;
+      td.addEventListener('change', () => updateMediaCell(prefix, idx));
+      tr.appendChild(td);
+    });
+    const tdM = document.createElement('td'); tdM.className='media-cell'; tdM.id=`m_${prefix}_${idx}`;
+    if (savedVals[`${prefix}_${idx}`] != null) {
+      const v = savedVals[`${prefix}_${idx}`];
+      tdM.textContent = v.toFixed(1);
+      tdM.style.color = {4:'#059669',3:'#2563EB',2:'#D97706',1:'#DC2626'}[v];
+    } else { tdM.textContent='—'; }
+    tr.appendChild(tdM);
+    tbody.appendChild(tr);
+  });
+}
+
+function updateMediaCell(prefix, idx) {
+  const sel = document.querySelector(`input[name="${prefix}_${idx}"]:checked`);
+  const el = document.getElementById(`m_${prefix}_${idx}`);
+  if (!sel || !el) return;
+  const v = parseFloat(sel.value);
+  el.textContent = v.toFixed(1);
+  el.style.color = {4:'#059669',3:'#2563EB',2:'#D97706',1:'#DC2626'}[v];
+}
+
+function tglTreinar(btn) {
+  document.querySelectorAll('#treinar-grp .tgl-btn').forEach(b=>b.className='tgl-btn');
+  podeTreinar = btn.dataset.v;
+  btn.classList.add(podeTreinar==='sim'?'tgl-sim':'tgl-nao');
+  document.getElementById('ferramentas-wrap').style.display = podeTreinar==='sim'?'block':'none';
+}
+
+function coletarRadios(prefix, count) {
+  const r = {};
+  for (let i = 0; i < count; i++) {
+    const sel = document.querySelector(`input[name="${prefix}_${i}"]:checked`);
+    r[`${prefix}_${i}`] = sel ? parseFloat(sel.value) : null;
+  }
+  return r;
+}
+
+async function salvarRascunhoGC() {
+  const body = coletarEtapa2Dados();
+  try {
+    await SB.patch('avaliacoes', AV.id, { etapa2_dados: body });
+    AV.etapa2_dados = body; showToast('Rascunho salvo!');
+  } catch(e) { showToast('Erro ao salvar.','error'); }
+}
+
+function coletarEtapa2Dados() {
+  const comp = coletarRadios('comp', compConfig.length);
+  const geral = coletarRadios('geral', 3);
+  return {
+    competencias: comp, media_competencias: avg(Object.values(comp)),
+    avaliacao_geral: geral, media_geral: avg(Object.values(geral)),
+    media_total: avg([...Object.values(comp), ...Object.values(geral)]),
+    pontos_pos: document.getElementById('pontos_pos').value.trim(),
+    pontos_dev: document.getElementById('pontos_dev').value.trim(),
+    pode_treinar: podeTreinar,
+    ferramentas: document.getElementById('ferramentas').value.trim(),
+    treinamentos: document.getElementById('treinamentos').value.trim(),
+    feedback_modo: document.querySelector('input[name="feedback_modo"]:checked')?.value,
+  };
+}
+
+async function submitEtapa2() {
+  const d = coletarEtapa2Dados();
+  const btn = document.getElementById('btn-submit');
+  btn.disabled = true; btn.textContent = 'Salvando...';
+  try {
+    await SB.patch('avaliacoes', AV.id, {
+      etapa2_dados: d, etapa_atual: 3,
+      media_competencias: d.media_competencias,
+      media_geral: d.media_geral, media_total: d.media_total,
+      atualizado_em: new Date().toISOString(),
+    });
+    document.getElementById('form-screen').style.display='none';
+    const ss = document.getElementById('success-screen');
+    ss.style.display='block';
+    document.getElementById('suc-title').textContent='Avaliação enviada!';
+    document.getElementById('suc-msg').textContent='Sua avaliação foi salva. O colaborador já pode preencher a parte dele.';
+    document.getElementById('suc-icon').textContent='✅';
+  } catch(e) {
+    showToast('Erro ao enviar.','error');
+    btn.disabled=false; btn.textContent='Concluir e enviar para Colaborador →';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ETAPA 3 — Colaborador visualiza, complementa e comenta
+// ═══════════════════════════════════════════════════════════════════
+function renderEtapa3Colaborador(form) {
+  document.getElementById('hdr-title').textContent = 'Etapa 3 — Preenchimento do Colaborador';
+  document.getElementById('hdr').className = 'hdr bg-amber';
+  document.getElementById('hdr-logo').textContent = '🙋';
+
+  const d1 = AV.etapa1_dados || {};
+  const d2 = AV.etapa2_dados || {};
+  const d3 = AV.etapa3_dados || {};
+  const coms = AV.comentarios || {};
+
+  form.innerHTML = `
+    <div class="infonote in-amber">
+      ℹ️ Você pode visualizar a avaliação completa, adicionar comentários em cada seção e preencher os campos a partir de <strong>Feedback Qualitativo</strong>.
+    </div>
+
+    <!-- Competências — somente leitura + comentário -->
+    <div class="card">
+      <div class="card-hdr"><div class="card-icon ci-blue">⭐</div>
+        <div><div class="card-title">Avaliação de Competências</div>
+          <div class="card-sub">Avaliado pelo Gestor do Cliente — você pode comentar</div></div>
+      </div>
+      <div class="card-body">
+        <table class="comp-table"><thead><tr>
+          <th>Competência</th><th>Nota</th><th>Classificação</th>
+        </tr></thead>
+        <tbody id="comp-ro-body"></tbody></table>
+        ${comentarioBox('comp_geral', coms.comp_geral, 'Comentário sobre as competências avaliadas')}
+      </div>
+    </div>
+
+    <!-- Avaliação geral — somente leitura + comentário -->
+    <div class="card">
+      <div class="card-hdr"><div class="card-icon ci-green">📊</div>
+        <div><div class="card-title">Avaliação Geral</div>
+          <div class="card-sub">Qualidade, prazo e satisfação — você pode comentar</div></div>
+      </div>
+      <div class="card-body">
+        <table class="comp-table"><thead><tr>
+          <th>Critério</th><th>Nota</th><th>Classificação</th>
+        </tr></thead>
+        <tbody id="geral-ro-body"></tbody></table>
+        ${comentarioBox('avaliacao_geral', coms.avaliacao_geral, 'Comentário sobre a avaliação geral')}
+      </div>
+    </div>
+
+    <!-- FEEDBACK QUALITATIVO — colaborador pode editar -->
+    <div class="card">
+      <div class="card-hdr"><div class="card-icon ci-amber">💬</div>
+        <div><div class="card-title">Feedback Qualitativo</div>
+          <div class="card-sub">✏️ Você pode complementar os pontos abaixo</div></div>
+      </div>
+      <div class="card-body">
+        <div class="field"><label>Pontos positivos</label>
+          <textarea id="pontos_pos">${d3.pontos_pos || d2.pontos_pos || ''}</textarea></div>
+        ${comentarioBox('pontos_pos', coms.pontos_pos, 'Seu ponto de vista sobre os pontos positivos')}
+        <div class="field" style="margin-top:14px"><label>Pontos a desenvolver</label>
+          <textarea id="pontos_dev">${d3.pontos_dev || d2.pontos_dev || ''}</textarea></div>
+        ${comentarioBox('pontos_dev', coms.pontos_dev, 'Seu ponto de vista sobre os pontos a desenvolver')}
+      </div>
+    </div>
+
+    <!-- Objetivos — somente leitura + comentário -->
+    <div class="card">
+      <div class="card-hdr"><div class="card-icon ci-green">🎯</div>
+        <div><div class="card-title">Objetivos para o período</div>
+          <div class="card-sub">Definidos pelo Gestor do Projeto</div></div>
+      </div>
+      <div class="card-body">
+        ${(d1.objetivos||[]).map((o,i)=>`<div class="readonly-row">
+          <span class="ro-label" style="min-width:30px">${i+1}.</span>
+          <span class="ro-val">${o}</span></div>`).join('') || '<p style="color:var(--g400);font-size:13px">Nenhum objetivo definido.</p>'}
+        ${comentarioBox('objetivos', coms.objetivos, 'Comentário sobre os objetivos')}
+      </div>
+    </div>
+
+    <!-- Avaliação da equipe Segula pelo colaborador -->
+    <div class="card">
+      <div class="card-hdr"><div class="card-icon ci-purple">🏢</div>
+        <div><div class="card-title">Avalie o atendimento da equipe Segula</div>
+          <div class="card-sub">✏️ Sua avaliação sobre cada área da Segula</div></div>
+      </div>
+      <div class="card-body">
+        <div class="legenda">
+          <div class="leg-item"><div class="leg-dot" style="background:#059669"></div>Acima do esperado (4)</div>
+          <div class="leg-item"><div class="leg-dot" style="background:#2563EB"></div>Dentro do esperado (3)</div>
+          <div class="leg-item"><div class="leg-dot" style="background:#D97706"></div>Abaixo do esperado (2)</div>
+          <div class="leg-item"><div class="leg-dot" style="background:#DC2626"></div>Não atende (1)</div>
+        </div>
+        <table class="comp-table"><thead><tr>
+          <th>Área avaliada</th><th>Acima</th><th>Dentro</th><th>Abaixo</th><th>Não atende</th><th>Média</th>
+        </tr></thead><tbody id="segula-body"></tbody></table>
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button type="button" class="btn btn-secondary" onclick="salvarRascunhoCol()">💾 Salvar rascunho</button>
+      <button type="submit" class="btn btn-primary" id="btn-submit">Concluir minha etapa →</button>
+    </div>`;
+
+  // Preenche tabelas somente leitura
+  buildROTable('comp-ro-body', compConfig, d2.competencias || {}, 'comp');
+  buildROTable('geral-ro-body', [
+    'Qualidade', 'Prazo de entrega (Deadline)', 'Nível de satisfação',
+  ], d2.avaliacao_geral || {}, 'geral');
+
+  // Tabela de avaliação Segula
+  buildCompTable('segula-body', [
+    'Gestores (comerciais)', 'Desenvolvimento Humano', 'Segurança do trabalho',
+  ], 'seg', d3.avaliacao_segula || {});
+
+  // Restaura comentários abertos
+  Object.keys(coms).forEach(k => {
+    const ta = document.getElementById(`com-${k}`);
+    if (ta && coms[k]) { ta.value = coms[k]; document.getElementById(`ca-${k}`).classList.add('open'); }
+  });
+
+  form.addEventListener('input', updateProg);
+  form.addEventListener('change', updateProg);
+  form.addEventListener('submit', e => { e.preventDefault(); submitEtapa3(); });
+}
+
+function buildROTable(tbodyId, items, savedVals, prefix) {
+  const tbody = document.getElementById(tbodyId);
+  items.forEach((item, idx) => {
+    const v = savedVals[`${prefix}_${idx}`];
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${item}</td>
+      <td><span class="nota-badge ${notaCls(v)}">${v != null ? v.toFixed(1) : '—'}</span></td>
+      <td style="color:var(--g600);font-size:12px">${notaTxt(v)}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function comentarioBox(key, savedVal, placeholder) {
+  return `<div style="margin-top:10px">
+    <button type="button" class="comment-toggle" onclick="toggleComment('${key}')">
+      💬 ${savedVal ? 'Ver/editar comentário' : 'Adicionar comentário'}
+    </button>
+    <div class="comment-area" id="ca-${key}">
+      <textarea class="comment-area textarea" id="com-${key}"
+        placeholder="${placeholder}..." style="border:1.5px solid #BFDBFE;border-radius:8px;padding:9px 13px;
+        font-family:Inter,sans-serif;font-size:13px;width:100%;background:#F0F6FF;outline:none;
+        resize:vertical;min-height:70px">${savedVal || ''}</textarea>
+      <div class="comment-hint">Seu comentário ficará visível apenas para o Gestor do Projeto na revisão final.</div>
+    </div></div>`;
+}
+
+function toggleComment(key) {
+  const ca = document.getElementById(`ca-${key}`);
+  ca.classList.toggle('open');
+}
+
+async function salvarRascunhoCol() {
+  const d = coletarEtapa3Dados();
+  try {
+    await SB.patch('avaliacoes', AV.id, { etapa3_dados: d.etapa3, comentarios: d.coms });
+    AV.etapa3_dados = d.etapa3; AV.comentarios = d.coms;
+    showToast('Rascunho salvo!');
+  } catch(e) { showToast('Erro ao salvar.','error'); }
+}
+
+function coletarEtapa3Dados() {
+  const seg = coletarRadios('seg', 3);
+  const etapa3 = {
+    pontos_pos: document.getElementById('pontos_pos').value.trim(),
+    pontos_dev: document.getElementById('pontos_dev').value.trim(),
+    avaliacao_segula: seg,
+    media_segula: avg(Object.values(seg)),
+  };
+  const coms = {};
+  ['comp_geral','avaliacao_geral','pontos_pos','pontos_dev','objetivos'].forEach(k => {
+    const ta = document.getElementById(`com-${k}`);
+    if (ta?.value?.trim()) coms[k] = ta.value.trim();
+  });
+  return { etapa3, coms };
+}
+
+async function submitEtapa3() {
+  const { etapa3, coms } = coletarEtapa3Dados();
+  const btn = document.getElementById('btn-submit');
+  btn.disabled = true; btn.textContent = 'Salvando...';
+  try {
+    await SB.patch('avaliacoes', AV.id, {
+      etapa3_dados: etapa3, comentarios: coms, etapa_atual: 4,
+      media_segula: etapa3.media_segula,
+      atualizado_em: new Date().toISOString(),
+    });
+    document.getElementById('form-screen').style.display='none';
+    const ss = document.getElementById('success-screen');
+    ss.style.display='block';
+    document.getElementById('suc-title').textContent='Etapa concluída!';
+    document.getElementById('suc-msg').textContent='Sua parte foi salva. O Gestor do Projeto irá revisar e finalizar a avaliação.';
+    document.getElementById('suc-icon').textContent='🎉';
+  } catch(e) {
+    showToast('Erro ao enviar.','error');
+    btn.disabled=false; btn.textContent='Concluir minha etapa →';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ETAPA 4 — GP revisa e finaliza
+// ═══════════════════════════════════════════════════════════════════
+function renderEtapa4Revisao(form) {
+  const concluida = AV.status === 'concluida';
+  document.getElementById('hdr-title').textContent = concluida ? 'Avaliação Concluída' : 'Etapa 4 — Revisão Final';
+  document.getElementById('hdr-logo').textContent = '🔍';
+  const d1 = AV.etapa1_dados || {};
+  const d2 = AV.etapa2_dados || {};
+  const d3 = AV.etapa3_dados || {};
+  const coms = AV.comentarios || {};
+
+  form.innerHTML = `
+    <div class="infonote in-blue">
+      👔 Revisão completa da avaliação. Você pode editar qualquer campo antes de finalizar.
+      Os comentários do colaborador são visíveis somente para você.
+    </div>
+
+    <!-- Dados -->
+    <div class="card">
+      <div class="card-hdr"><div class="card-icon ci-navy">👤</div>
+        <div><div class="card-title">Dados do Colaborador</div><div class="card-sub">Informações gerais</div></div>
+      </div>
+      <div class="card-body">
+        <div class="row2">
+          <div class="readonly-row"><span class="ro-label">Colaborador</span><span class="ro-val">${d1.colaborador||'—'}</span></div>
+          <div class="readonly-row"><span class="ro-label">Função</span><span class="ro-val">${d1.funcao||'—'}</span></div>
+        </div>
+        <div class="row2" style="margin-top:8px">
+          <div class="readonly-row"><span class="ro-label">Cliente / Projeto</span><span class="ro-val">${d1.cliente||'—'}</span></div>
+          <div class="readonly-row"><span class="ro-label">Ciclo</span><span class="ro-val">${AV.ciclo||'—'}</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Competências com comentário do colaborador -->
+    <div class="card">
+      <div class="card-hdr"><div class="card-icon ci-blue">⭐</div>
+        <div><div class="card-title">Competências</div><div class="card-sub">Avaliado pelo Gestor do Cliente</div></div>
+      </div>
+      <div class="card-body">
+        <table class="comp-table"><thead><tr>
+          <th>Competência</th><th>Nota</th><th>Classificação</th>
+        </tr></thead><tbody id="rev-comp-body"></tbody></table>
+        ${coms.comp_geral ? comentarioBubble('Colaborador', coms.comp_geral) : ''}
+      </div>
+    </div>
+
+    <!-- Avaliação geral -->
+    <div class="card">
+      <div class="card-hdr"><div class="card-icon ci-green">📊</div>
+        <div><div class="card-title">Avaliação Geral</div></div>
+      </div>
+      <div class="card-body">
+        <table class="comp-table"><thead><tr>
+          <th>Critério</th><th>Nota</th><th>Classificação</th>
+        </tr></thead><tbody id="rev-geral-body"></tbody></table>
+        ${coms.avaliacao_geral ? comentarioBubble('Colaborador', coms.avaliacao_geral) : ''}
+      </div>
+    </div>
+
+    <!-- Feedback — editável -->
+    <div class="card">
+      <div class="card-hdr"><div class="card-icon ci-amber">💬</div>
+        <div><div class="card-title">Feedback Qualitativo</div>
+          <div class="card-sub">✏️ Você pode editar o feedback final</div></div>
+      </div>
+      <div class="card-body">
+        <div class="field"><label>Pontos positivos</label>
+          <textarea id="rev_pontos_pos" ${concluida?'readonly':''}>${d3.pontos_pos||d2.pontos_pos||''}</textarea></div>
+        ${coms.pontos_pos ? comentarioBubble('Colaborador', coms.pontos_pos) : ''}
+        <div class="field" style="margin-top:12px"><label>Pontos a desenvolver</label>
+          <textarea id="rev_pontos_dev" ${concluida?'readonly':''}>${d3.pontos_dev||d2.pontos_dev||''}</textarea></div>
+        ${coms.pontos_dev ? comentarioBubble('Colaborador', coms.pontos_dev) : ''}
+      </div>
+    </div>
+
+    <!-- Objetivos -->
+    <div class="card">
+      <div class="card-hdr"><div class="card-icon ci-green">🎯</div>
+        <div><div class="card-title">Objetivos para o período</div></div>
+      </div>
+      <div class="card-body">
+        ${(d1.objetivos||[]).map((o,i)=>`<div class="readonly-row">
+          <span class="ro-label" style="min-width:30px">${i+1}.</span><span class="ro-val">${o}</span></div>`).join('') || '—'}
+        ${coms.objetivos ? comentarioBubble('Colaborador', coms.objetivos) : ''}
+      </div>
+    </div>
+
+    <!-- Avaliação da Segula pelo colaborador -->
+    ${d3.avaliacao_segula ? `<div class="card">
+      <div class="card-hdr"><div class="card-icon ci-purple">🏢</div>
+        <div><div class="card-title">Avaliação do Colaborador — Equipe Segula</div></div>
+      </div>
+      <div class="card-body">
+        <table class="comp-table"><thead><tr>
+          <th>Área</th><th>Nota</th><th>Classificação</th>
+        </tr></thead><tbody id="rev-seg-body"></tbody></table>
+      </div>
+    </div>` : ''}
+
+    <!-- Treinamentos -->
+    <div class="card">
+      <div class="card-hdr"><div class="card-icon ci-amber">🎓</div>
+        <div><div class="card-title">Treinamentos</div></div>
+      </div>
+      <div class="card-body">
+        <div class="readonly-row"><span class="ro-label">Pode ministrar treinamentos</span>
+          <span class="ro-val">${d2.pode_treinar==='sim'?'✅ Sim':'❌ Não'}</span></div>
+        ${d2.ferramentas?`<div class="readonly-row"><span class="ro-label">Ferramentas</span><span class="ro-val">${d2.ferramentas}</span></div>`:''}
+        <div class="readonly-row"><span class="ro-label">Treinamentos recebidos</span>
+          <span class="ro-val">${d2.treinamentos||'—'}</span></div>
+      </div>
+    </div>
+
+    <!-- Comentários do GP -->
+    <div class="card">
+      <div class="card-hdr"><div class="card-icon ci-navy">📝</div>
+        <div><div class="card-title">Observações finais do Gestor do Projeto</div>
+          <div class="card-sub">Visível apenas para você</div></div>
+      </div>
+      <div class="card-body">
+        <div class="field row1"><div class="field"><label>Observações finais</label>
+          <textarea id="rev_obs_final" ${concluida?'readonly':''}
+            placeholder="Observações finais, encaminhamentos, próximos passos...">${AV.etapa4_dados?.obs_final||''}</textarea>
+        </div></div>
+      </div>
+    </div>
+
+    ${!concluida ? `<div class="form-actions">
+      <button type="button" class="btn btn-secondary" onclick="salvarRascunhoGP4()">💾 Salvar rascunho</button>
+      <button type="submit" class="btn btn-success" id="btn-submit">✅ Finalizar avaliação</button>
+    </div>` : `<div class="infonote in-green" style="margin-top:20px">
+      ✅ Esta avaliação foi <strong>concluída</strong>. Somente leitura.</div>`}`;
+
+  buildROTable('rev-comp-body', compConfig, d2.competencias||{}, 'comp');
+  buildROTable('rev-geral-body', ['Qualidade','Prazo de entrega','Nível de satisfação'], d2.avaliacao_geral||{}, 'geral');
+  if (d3.avaliacao_segula) buildROTable('rev-seg-body', ['Gestores (comerciais)','Desenvolvimento Humano','Segurança do trabalho'], d3.avaliacao_segula, 'seg');
+
+  if (!concluida) {
+    form.addEventListener('submit', e => { e.preventDefault(); submitEtapa4(); });
+  }
+}
+
+function comentarioBubble(autor, texto) {
+  return `<div class="comment-bubble">
+    <div class="cb-label">💬 Comentário do ${autor}</div>${texto}</div>`;
+}
+
+async function salvarRascunhoGP4() {
+  const d = { obs_final: document.getElementById('rev_obs_final').value.trim(),
+    pontos_pos: document.getElementById('rev_pontos_pos').value.trim(),
+    pontos_dev: document.getElementById('rev_pontos_dev').value.trim() };
+  try {
+    await SB.patch('avaliacoes', AV.id, { etapa4_dados: d }); showToast('Rascunho salvo!');
+  } catch(e) { showToast('Erro ao salvar.','error'); }
+}
+
+async function submitEtapa4() {
+  const btn = document.getElementById('btn-submit');
+  btn.disabled=true; btn.textContent='Finalizando...';
+  const d4 = {
+    obs_final: document.getElementById('rev_obs_final').value.trim(),
+    pontos_pos: document.getElementById('rev_pontos_pos').value.trim(),
+    pontos_dev: document.getElementById('rev_pontos_dev').value.trim(),
+  };
+  try {
+    await SB.patch('avaliacoes', AV.id, {
+      etapa4_dados: d4, status: 'concluida',
+      concluida_em: new Date().toISOString(),
+      atualizado_em: new Date().toISOString(),
+    });
+    document.getElementById('form-screen').style.display='none';
+    const ss=document.getElementById('success-screen');
+    ss.style.display='block';
+    document.getElementById('suc-title').textContent='Avaliação finalizada!';
+    document.getElementById('suc-msg').textContent='A avaliação foi concluída e registrada com sucesso.';
+    document.getElementById('suc-icon').textContent='🏆';
+  } catch(e) {
+    showToast('Erro ao finalizar.','error');
+    btn.disabled=false; btn.textContent='✅ Finalizar avaliação';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// VISUALIZAÇÃO (leitura — etapa errada ou já preenchida)
+// ═══════════════════════════════════════════════════════════════════
+function renderVisualizacao(form) {
+  const d1 = AV.etapa1_dados||{}, d2 = AV.etapa2_dados||{};
+  const etapa = AV.etapa_atual;
+  form.innerHTML = `
+    <div class="infonote in-amber">
+      ℹ️ Esta avaliação está na <strong>Etapa ${etapa}</strong>.
+      ${PAPEL==='gc' && etapa!==2 ? 'Você já preencheu sua parte ou esta etapa ainda não chegou até você.' :
+        PAPEL==='colaborador' && etapa!==3 ? 'Você já preencheu sua parte ou esta etapa ainda não chegou até você.' : ''}
+    </div>
+    <div class="card">
+      <div class="card-hdr"><div class="card-icon ci-navy">👤</div>
+        <div><div class="card-title">${d1.colaborador||'Colaborador'}</div>
+        <div class="card-sub">${d1.funcao||''} · ${AV.ciclo||''}</div></div>
+        <span class="etapa-badge ${statusLabel(etapa,AV.status).cls}">${statusLabel(etapa,AV.status).txt}</span>
+      </div>
+      ${etapa >= 2 && Object.keys(d2).length ? `<div class="card-body">
+        <div class="readonly-row"><span class="ro-label">Média de competências</span>
+          <span class="nota-badge ${notaCls(d2.media_competencias)}">${d2.media_competencias?.toFixed(1)||'—'}</span></div>
+        <div class="readonly-row"><span class="ro-label">Média geral</span>
+          <span class="nota-badge ${notaCls(d2.media_geral)}">${d2.media_geral?.toFixed(1)||'—'}</span></div>
+      </div>` : ''}
+    </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// PROGRESS BAR
+// ═══════════════════════════════════════════════════════════════════
+function updateProg() {
+  const reqs = document.querySelectorAll('input[required],select[required]');
+  const filled = Array.from(reqs).filter(el => el.value.trim()).length;
+  const radios = new Set();
+  document.querySelectorAll('input[type=radio]').forEach(r => radios.add(r.name));
+  let radioF = 0;
+  radios.forEach(n => { if (document.querySelector(`input[name="${n}"]:checked`)) radioF++; });
+  const total = reqs.length + radios.size, done = filled + radioF;
+  const pct = total ? Math.round(done/total*100) : 0;
+  document.getElementById('prog-fill').style.width = pct+'%';
+  document.getElementById('prog-pct').textContent = pct+'%';
+  document.getElementById('prog-txt').textContent =
+    pct===100 ? 'Tudo preenchido!' : pct>50 ? 'Quase lá...' : 'Preenchimento em andamento';
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ERRO
+// ═══════════════════════════════════════════════════════════════════
+function mostrarErro(msg) {
+  document.getElementById('main-wrap').innerHTML = `
+    <div style="text-align:center;padding:80px 20px">
+      <div style="font-size:48px;margin-bottom:16px">⚠️</div>
+      <h2 style="font-family:Sora,sans-serif;color:var(--navy);margin-bottom:10px">Acesso negado</h2>
+      <p style="color:var(--g400);max-width:400px;margin:0 auto">${msg}</p>
+    </div>`;
+}
+</script>
+</body>
+</html>
